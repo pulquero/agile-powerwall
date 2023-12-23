@@ -1,0 +1,2 @@
+teslapy
+'urllib3<2'
