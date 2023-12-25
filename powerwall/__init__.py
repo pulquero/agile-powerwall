@@ -153,7 +153,17 @@ def update_powerwall_tariff():
     rates[0]["start"] = today_start
     rates[-1]["end"] = today_end
 
-    breaks = pyscript.app_config["tariff_breaks"]
+    plunge_pricing = False
+    for rate in rates:
+        if rate["value_inc_vat"] < 0.0:
+            plunge_pricing = True
+            break
+
+    if plunge_pricing:
+        breaks = pyscript.app_config["plunge_pricing_tariff_breaks"]
+    else:
+        breaks = pyscript.app_config["tariff_breaks"]
+
     # sanitise user input
     breaks = breaks[:len(CHARGE_NAMES)-1]
 

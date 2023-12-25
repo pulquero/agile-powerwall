@@ -25,6 +25,7 @@ using
 	            email: <username/email>
 	            refresh_token: <refresh_token>
 	            tariff_breaks: [0.10, 0.20, 0.30]
+	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
 
 ## Configuration
 
@@ -38,3 +39,5 @@ The `tariff_breaks` represent the thresholds for each level.
 So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.10 and £0.20 to Off-Peak, between £0.20 and £0.30 to Mid-peak, and above £0.30 to Peak.
 The price of each level is set to be the average of all the actual prices assigned to a level.
 If the average turns out to be negative, it is set to zero.
+
+`plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
