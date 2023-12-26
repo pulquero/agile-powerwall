@@ -67,27 +67,16 @@ def _set_powerwall_tariff(email, refresh_token, tariff_data):
 
 
 @pyscript_executor
-def _set_powerwall_reserve(email, refresh_token, percentage):
+def _set_powerwall_settings(email, refresh_token, reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
     with teslapy.Tesla(email) as tesla:
         tesla.refresh_token(refresh_token=refresh_token)
         pw = tesla.battery_list()[0]
-        pw.set_backup_reserve_percent(percentage)
-
-
-@pyscript_executor
-def _set_powerwall_operation(email, refresh_token, mode):
-    with teslapy.Tesla(email) as tesla:
-        tesla.refresh_token(refresh_token=refresh_token)
-        pw = tesla.battery_list()[0]
-        pw.set_operation(mode=mode)
-
-
-@pyscript_executor
-def _set_powerwall_import_export(email, refresh_token, allow_grid_charging=None, allow_battery_export=None):
-    with teslapy.Tesla(email) as tesla:
-        tesla.refresh_token(refresh_token=refresh_token)
-        pw = tesla.battery_list()[0]
-        pw.set_import_export(allow_grid_charging=allow_grid_charging, allow_battery_export=allow_battery_export)
+        if reserve_percentage is not None:
+            pw.set_backup_reserve_percent(reserve_percentage)
+        if mode is not None:
+            pw.set_operation(mode=mode)
+        if allow_grid_charging is not None or allow_battery_export is not None:
+            pw.set_import_export(allow_grid_charging=allow_grid_charging, allow_battery_export=allow_battery_export)
 
 
 @event_trigger("octopus_energy_electricity_previous_day_rates")
@@ -241,28 +230,12 @@ def update_powerwall_tariff():
 
 
 @service
-def set_backup_reserve(percentage):
-    _set_powerwall_reserve(
+def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
+    _set_powerwall_settings(
         email=pyscript.app_config["email"],
         refresh_token=pyscript.app_config["refresh_token"],
-        percentage=percentage
+        reserve_percentage=reserve_percentage,
+        mode=mode,
+        allow_grid_charging=allow_grid_charging,
+        allow_battery_export=allow_battery_export
     )
-
-
-@service
-def set_operation(mode):
-    _set_powerwall_operation(
-        email=pyscript.app_config["email"],
-        refresh_token=pyscript.app_config["refresh_token"],
-        mode=mode
-    )
-
-
-@service
-def set_grid_charging(enable):
-    _set_powerwall_import_export(
-        email=pyscript.app_config["email"],
-        refresh_token=pyscript.app_config["refresh_token"],
-        allow_grid_charging=enable
-    )
-
