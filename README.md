@@ -14,9 +14,9 @@ using
 
 ## Installation
 
-1.   Install Octopus Energy.
-2.   Install Pyscript.
-3.   Copy `powerwall/*` to the Home Assistant directory `/config/pyscript/apps/powerwall/*`.
+1.   Install Home Assistant Octopus Energy integration.
+2.   Install Pyscript integration.
+3.   Copy the contents of the `src` directory to the Home Assistant directory `/config/pyscript`.
 4.   Add Pyscript app configuration:
 
 	pyscript:
@@ -24,6 +24,8 @@ using
 	        powerwall:
 	            email: <username/email>
 	            refresh_token: <refresh_token>
+	            tariff_name: Agile
+	            tariff_provider: Octopus
 	            tariff_breaks: [0.10, 0.20, 0.30]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
 
@@ -33,6 +35,10 @@ using
 
 `refresh_token`: One-off refresh token (see e.g. <https://github.com/DoctorMcKay/chromium-tesla-token-generator>)
 
+`tariff_name`: name of the tariff.
+
+`tariff_provider`: name of the tariff provider.
+
 `tariff_breaks`: Powerwall currently only supports four pricing levels: Peak, Mid-Peak, Off-Peak and Super Off-Peak.
 Dynamic pricing therefore has to be mapped to these four levels.
 The `tariff_breaks` represent the thresholds for each level.
@@ -41,3 +47,16 @@ The price of each level is set to be the average of all the actual prices assign
 If the average turns out to be negative, it is set to zero.
 
 `plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
+
+### Computed thresholds
+
+As well as numeric thresholds, the following computed thresholds are also supported:
+
+`lowest(num_hours)`: sets the threshold at the price to include the cheapest `num_hours` hours.
+
+`highest(num_hours)`: sets the threshold at the price to exclude the most expensive `num_hours` hours.
+
+e.g.:
+
+	            tariff_breaks: ["lowest(2)", 0.20, 0.30]
+
