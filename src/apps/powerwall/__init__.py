@@ -1,3 +1,4 @@
+import datetime as dt
 import itertools
 import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
@@ -60,7 +61,7 @@ def update_powerwall_tariff():
             return
 
     rates = itertools.chain(PREVIOUS_DAY_RATES, CURRENT_DAY_RATES, NEXT_DAY_RATES)
-    tariff_data = tariff.calculate_tariff_data(pyscript.app_config, rates)
+    tariff_data = tariff.calculate_tariff_data(pyscript.app_config, dt.date.today(), rates)
 
     debug(f"Tariff data:\n{tariff_data}")
 

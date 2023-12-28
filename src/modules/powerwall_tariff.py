@@ -3,49 +3,57 @@ import datetime as dt
 
 EXCLUSIVE_OFFSET = 0.000001
 
+ONE_DAY_INCREMENT = dt.timedelta(days=1)
+
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
 
 class Schedule:
     def __init__(self, charge_name):
         self.charge_name = charge_name
-        self.periods = []
-        self.value_sum = 0.0
+        self._periods = []
+        self._value = None
+        self._value_sum = 0.0
         self.rate_count = 0
-        self.start = None
-        self.end = None
+        self._start = None
+        self._end = None
 
     def add(self, rate):
-        if self.start is None:
-            self.start = rate["start"]
-            self.end = rate["end"]
-        elif rate['start'] == self.end:
-            self.end = rate["end"]
+        if self._start is None:
+            self._start = rate["start"]
+            self._end = rate["end"]
+        elif rate['start'] == self._end:
+            self._end = rate["end"]
         else:
-            self.periods.append((self.start, self.end))
-            self.start = rate["start"]
-            self.end = rate["end"]
-        self.value_sum += rate["value_inc_vat"]
+            self._periods.append((self._start, self._end))
+            self._start = rate["start"]
+            self._end = rate["end"]
+        self._value_sum += rate["value_inc_vat"]
         self.rate_count += 1
 
-    def finish(self):
-        if self.start is not None:
-            self.periods.append((self.start, self.end))
-            self.start = None
-            self.end = None
+    def get_periods(self):
+        if self._start is not None:
+            self._periods.append((self._start, self._end))
+            self._start = None
+            self._end = None
+        return self._periods
 
-        if self.rate_count > 0:
-            self.value = self.value_sum/self.rate_count
-            if self.value < 0.0:
-                self.value = 0.0
-        else:
-            self.value = 0.0
+    def get_value(self):
+        if self._value is None:
+            if self.rate_count > 0:
+                self._value = self._value_sum/self.rate_count
+                if self._value < 0.0:
+                    self._value = 0.0
+            else:
+                self._value = 0.0
+
+        return self._value
 
 
 def lowest_rates(rates, hrs):
     prices = [r["value_inc_vat"] for r in rates]
     prices.sort()
-    n = 2*int(hrs)
+    n = round(2.0*float(hrs))
     limit = prices[n-1] if n <= len(prices) else prices[-1]
     return limit + EXCLUSIVE_OFFSET
 
@@ -53,7 +61,7 @@ def lowest_rates(rates, hrs):
 def highest_rates(rates, hrs):
     prices = [r["value_inc_vat"] for r in rates]
     prices.sort(reverse=True)
-    n = 2*int(hrs)
+    n = round(2.0*float(hrs))
     limit = prices[n-1] if n <= len(prices) else prices[-1]
     return limit + EXCLUSIVE_OFFSET
 
@@ -64,20 +72,19 @@ RATE_FUNCS = {
 }
 
 
-def calculate_tariff_data(config, rates):
-    today = dt.date.today()
-    today_start = dt.datetime.combine(today, dt.time.min).astimezone(dt.timezone.utc)
-    today_end = dt.datetime.combine(today + dt.timedelta(days=1), dt.time.min).astimezone(dt.timezone.utc)
+def get_schedules(config, day_date, rates):
+    day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
+    day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
 
-    # filter down to today's rates
-    rates = [rate for rate in rates if rate["start"] >= today_start and rate["end"] <= today_end]
+    # filter down to the given day
+    rates = [rate for rate in rates if rate["start"] >= day_start and rate["end"] <= day_end]
 
     if len(rates) == 0:
-        return
+        return None
 
     # pad rates to cover 24 hours
-    rates[0]["start"] = today_start
-    rates[-1]["end"] = today_end
+    rates[0]["start"] = day_start
+    rates[-1]["end"] = day_end
 
     plunge_pricing = False
     for rate in rates:
@@ -85,7 +92,7 @@ def calculate_tariff_data(config, rates):
             plunge_pricing = True
             break
 
-    if plunge_pricing:
+    if "plunge_pricing_tariff_breaks" in config and plunge_pricing:
         configured_breaks = config["plunge_pricing_tariff_breaks"]
     else:
         configured_breaks = config["tariff_breaks"]
@@ -117,25 +124,36 @@ def calculate_tariff_data(config, rates):
             schedule = schedules[-1]
         schedule.add(rate)
 
+    return schedules
+
+
+def to_charge_period_json(start_day_of_week, end_day_of_week, period):
+    start_local = period[0].astimezone()
+    end_local = period[1].astimezone()
+    return {
+        "fromDayOfWeek": start_day_of_week,
+        "fromHour": start_local.hour,
+        "fromMinute": start_local.minute,
+        "toDayOfWeek": end_day_of_week,
+        "toHour": end_local.hour,
+        "toMinute": end_local.minute
+    }
+
+
+def calculate_tariff_data(config, day_date, rates):
+    schedules = get_schedules(config, day_date, rates)
+    if schedules is None:
+        return
+
     tou_periods = {}
     buy_price_info = {}
     sell_price_info = {}
     for schedule in schedules:
-        schedule.finish()
         charge_periods = []
-        for period in schedule.periods:
-            start_local = period[0].astimezone()
-            end_local = period[1].astimezone()
-            charge_periods.append({
-                "fromDayOfWeek": 0,
-                "fromHour": start_local.hour,
-                "fromMinute": start_local.minute,
-                "toDayOfWeek": 6,
-                "toHour": end_local.hour,
-                "toMinute": end_local.minute
-            })
+        for period in schedule.get_periods():
+            charge_periods.append(to_charge_period_json(0, 6, period))
         tou_periods[schedule.charge_name] = charge_periods
-        buy_price_info[schedule.charge_name] = schedule.value
+        buy_price_info[schedule.charge_name] = schedule.get_value()
         sell_price_info[schedule.charge_name] = 0.0
 
     plan = config["tariff_name"]
