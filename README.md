@@ -27,6 +27,7 @@ using
 	            tariff_name: Agile
 	            tariff_provider: Octopus
 	            tariff_breaks: [0.10, 0.20, 0.30]
+	            tariff_pricing: ["average", "average", "maximum", "maximum"]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
 
 ## Configuration
@@ -43,10 +44,11 @@ using
 Dynamic pricing therefore has to be mapped to these four levels.
 The `tariff_breaks` represent the thresholds for each level.
 So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.10 and £0.20 to Off-Peak, between £0.20 and £0.30 to Mid-peak, and above £0.30 to Peak.
-The price of each level is set to be the average of all the actual prices assigned to a level.
-If the average turns out to be negative, it is set to zero.
 
 `plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
+
+`tariff_pricing`: determines how to calculate the price of each pricing level from the actual prices assigned to a level.
+
 
 ### Computed thresholds
 
@@ -60,3 +62,11 @@ e.g.:
 
 	            tariff_breaks: ["lowest(2)", 0.20, 0.30]
 
+
+### Pricing formulas
+
+`average`: the average of all the prices. If the average is negative, it is set to zero.
+
+`minimum`: the minimum of all the prices. If the minimum is negative, it is set to zero.
+
+`maximum`: the maximum of all the prices.

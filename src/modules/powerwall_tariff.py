@@ -7,14 +7,15 @@ ONE_DAY_INCREMENT = dt.timedelta(days=1)
 
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
+PRICE_CAP = 1.00
+
 
 class Schedule:
-    def __init__(self, charge_name):
+    def __init__(self, charge_name, pricing):
         self.charge_name = charge_name
+        self.pricing = pricing
         self._periods = []
         self._value = None
-        self._value_sum = 0.0
-        self.rate_count = 0
         self._start = None
         self._end = None
 
@@ -28,8 +29,7 @@ class Schedule:
             self._periods.append((self._start, self._end))
             self._start = rate["start"]
             self._end = rate["end"]
-        self._value_sum += rate["value_inc_vat"]
-        self.rate_count += 1
+        self.pricing.add(rate["value_inc_vat"])
 
     def get_periods(self):
         if self._start is not None:
@@ -40,13 +40,7 @@ class Schedule:
 
     def get_value(self):
         if self._value is None:
-            if self.rate_count > 0:
-                self._value = self._value_sum/self.rate_count
-                if self._value < 0.0:
-                    self._value = 0.0
-            else:
-                self._value = 0.0
-
+            self._value = self.pricing.get_value()
         return self._value
 
 
@@ -72,6 +66,58 @@ RATE_FUNCS = {
 }
 
 
+class AveragePricing():
+    def __init__(self):
+        self.sum = 0
+        self.count = 0
+
+    def add(self, price):
+        self.sum += price
+        self.count += 1
+
+    def get_value(self):
+        if self.count > 0:
+            v = self.sum/self.count
+            if v < 0.0:
+                v = 0.0
+            return v
+        else:
+            return 0.0
+
+
+class MinimumPricing():
+    def __init__(self):
+        self.min = PRICE_CAP
+
+    def add(self, price):
+        if price < self.min:
+            self.min = price
+
+    def get_value(self):
+        v = self.min
+        if v < 0.0:
+            v = 0.0;
+        return v
+
+
+class MaximumPricing():
+    def __init__(self):
+        self.max = 0
+
+    def add(self, price):
+        if price > self.max:
+            self.max = price
+
+    def get_value(self):
+        return self.max
+
+
+PRICING_FUNCS = {
+    "average": AveragePricing,
+    "minimum": MinimumPricing,
+    "maximum": MaximumPricing,
+}
+
 def get_schedules(config, day_date, rates):
     day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
     day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
@@ -96,10 +142,11 @@ def get_schedules(config, day_date, rates):
         configured_breaks = config["plunge_pricing_tariff_breaks"]
     else:
         configured_breaks = config["tariff_breaks"]
+    if len(configured_breaks) != len(CHARGE_NAMES)-1:
+        raise ValueError(f"{len(CHARGE_NAMES)-1} breaks must be specified")
 
     breaks = []
-    for i in range(len(CHARGE_NAMES)-1):
-        br = configured_breaks[i]
+    for br in configured_breaks:
         if isinstance(br, float) or isinstance(br, int):
             v = br
         elif isinstance(br, str) and '(' in br and br[-1] == ')':
@@ -111,7 +158,15 @@ def get_schedules(config, day_date, rates):
             raise ValueError(f"Invalid threshold: {br}")
         breaks.append(v)
 
-    schedules = [Schedule(charge_name) for charge_name in CHARGE_NAMES]
+    configured_pricing = config["tariff_pricing"]
+    if len(configured_pricing) != len(CHARGE_NAMES):
+        raise ValueError(f"{len(CHARGE_NAMES)} pricing functions must be specified")
+
+    schedules = []
+    for i, charge_name in enumerate(CHARGE_NAMES):
+        pricing_type = PRICING_FUNCS[configured_pricing[i]]
+        pricing = pricing_type()
+        schedules.append(Schedule(charge_name, pricing))
 
     for rate in rates:
         v = rate['value_inc_vat']
