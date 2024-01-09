@@ -1,4 +1,5 @@
 import datetime as dt
+import itertools
 
 
 EXCLUSIVE_OFFSET = 0.000001
@@ -8,6 +9,37 @@ ONE_DAY_INCREMENT = dt.timedelta(days=1)
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
 PRICE_CAP = 1.00
+
+
+class Rates:
+    def __init__(self):
+        self.previous_day = None
+        self.current_day = None
+        self.next_day = None
+
+    def is_valid(self):
+        if self.previous_day is None or self.current_day is None or self.next_day is None:
+            raise ValueError("Waiting for rate data")
+
+        if len(self.previous_day) > 0 and len(self.current_day) > 0:
+            previous_day_end = self.previous_day[-1]["end"]
+            current_day_start = self.current_day[0]["start"]
+            if current_day_start != previous_day_end:
+                raise ValueError(f"Previous to current day rates are not contiguous: {previous_day_end} {current_day_start}")
+
+        if len(self.current_day) > 0 and len(self.next_day) > 0:
+            current_day_end = self.current_day[-1]["end"]
+            next_day_start = self.next_day[0]["start"]
+            if next_day_start != current_day_end:
+                raise ValueError(f"Current to next day rates are not contiguous: {current_day_end} {next_day_start}")
+
+    def iter(self):
+        return itertools.chain(self.previous_day, self.current_day, self.next_day)
+
+    def clear(self):
+        self.previous_day = None
+        self.current_day = None
+        self.next_day = None
 
 
 class Schedule:
@@ -123,17 +155,17 @@ def get_schedules(config, day_date, rates):
     day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
 
     # filter down to the given day
-    rates = [rate for rate in rates if rate["start"] >= day_start and rate["end"] <= day_end]
+    day_rates = [rate for rate in rates.iter() if rate["start"] >= day_start and rate["end"] <= day_end]
 
-    if len(rates) == 0:
+    if len(day_rates) == 0:
         return None
 
     # pad rates to cover 24 hours
-    rates[0]["start"] = day_start
-    rates[-1]["end"] = day_end
+    day_rates[0]["start"] = day_start
+    day_rates[-1]["end"] = day_end
 
     plunge_pricing = False
-    for rate in rates:
+    for rate in day_rates:
         if rate["value_inc_vat"] < 0.0:
             plunge_pricing = True
             break
@@ -153,7 +185,7 @@ def get_schedules(config, day_date, rates):
             sep = br.index('(')
             func_name = br[:sep]
             func_args = br[sep+1:-1].split(',')
-            v = RATE_FUNCS[func_name](rates, *func_args)
+            v = RATE_FUNCS[func_name](day_rates, *func_args)
         else:
             raise ValueError(f"Invalid threshold: {br}")
         breaks.append(v)
@@ -168,7 +200,7 @@ def get_schedules(config, day_date, rates):
         pricing = pricing_type()
         schedules.append(Schedule(charge_name, pricing))
 
-    for rate in rates:
+    for rate in day_rates:
         v = rate['value_inc_vat']
         schedule = None
         for i, br in enumerate(breaks):

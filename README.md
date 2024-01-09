@@ -26,6 +26,7 @@ using
 	            refresh_token: <refresh_token>
 	            tariff_name: Agile
 	            tariff_provider: Octopus
+	            import_mpan: <mpan>
 	            tariff_breaks: [0.10, 0.20, 0.30]
 	            tariff_pricing: ["average", "average", "maximum", "maximum"]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
@@ -39,6 +40,8 @@ using
 `tariff_name`: name of the tariff.
 
 `tariff_provider`: name of the tariff provider.
+
+`import_mpan`: MPAN to use for import rates
 
 `tariff_breaks`: Powerwall currently only supports four pricing levels: Peak, Mid-Peak, Off-Peak and Super Off-Peak.
 Dynamic pricing therefore has to be mapped to these four levels.
