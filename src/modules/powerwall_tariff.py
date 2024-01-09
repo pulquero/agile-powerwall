@@ -1,4 +1,5 @@
 import datetime as dt
+import itertools
 
 
 EXCLUSIVE_OFFSET = 0.000001
@@ -8,6 +9,37 @@ ONE_DAY_INCREMENT = dt.timedelta(days=1)
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
 PRICE_CAP = 1.00
+
+
+class Rates:
+    def __init__(self):
+        self.previous_day = None
+        self.current_day = None
+        self.next_day = None
+
+    def is_valid(self):
+        if self.previous_day is None or self.current_day is None or self.next_day is None:
+            raise ValueError("Waiting for rate data")
+
+        if len(self.previous_day) > 0 and len(self.current_day) > 0:
+            previous_day_end = self.previous_day[-1]["end"]
+            current_day_start = self.current_day[0]["start"]
+            if current_day_start != previous_day_end:
+                raise ValueError(f"Previous to current day rates are not contiguous: {previous_day_end} {current_day_start}")
+
+        if len(self.current_day) > 0 and len(self.next_day) > 0:
+            current_day_end = self.current_day[-1]["end"]
+            next_day_start = self.next_day[0]["start"]
+            if next_day_start != current_day_end:
+                raise ValueError(f"Current to next day rates are not contiguous: {current_day_end} {next_day_start}")
+
+    def __iter__(self):
+        return itertools.chain(self.previous_day, self.current_day, self.next_day)
+
+    def clear(self):
+        self.previous_day = None
+        self.current_day = None
+        self.next_day = None
 
 
 class Schedule:
