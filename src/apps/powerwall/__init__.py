@@ -67,6 +67,33 @@ def update_powerwall_tariff():
 
 @service("powerwall.set_settings")
 def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
+    """yaml
+    name: Set Powerwall settings
+    description: Changes Powerwall settings
+    fields:
+        reserve_percentage:
+            description: backup reserve percentage
+            selector:
+                number:
+                    min: 0
+                    max: 100
+        mode:
+            description: battery operation mode
+            selector:
+                select:
+                    options:
+                        - self_consumption
+                        - backup
+                        - autonomous
+        allow_grid_charging:
+            description: enable grid charging
+            selector:
+                boolean:
+        allow_battery_export:
+            description: enable battery export else PV only
+            selector:
+                boolean:
+    """
     api_wrapper.set_powerwall_settings(
         email=pyscript.app_config["email"],
         refresh_token=pyscript.app_config["refresh_token"],
