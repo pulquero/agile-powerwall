@@ -62,6 +62,8 @@ def update_powerwall_tariff():
         tariff_data=tariff_data
     )
 
+    debug("Powerwall updated")
+
     IMPORT_RATES.clear()
 
 
