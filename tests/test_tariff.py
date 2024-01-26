@@ -13,15 +13,36 @@ next_rates = []
 
 
 class TestTariff(unittest.TestCase):
-    def testCalculateTariff(self):
+    def test_extend_from(self):
+        rates = [{'start': datetime.datetime(2023, 12, 27, 1, 0, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 1, 30, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5}]
+        tariff.extend_from(rates, datetime.datetime(2023, 12, 27, 0, 0, tzinfo=datetime.timezone.utc))
+        expected = [
+            {'start': datetime.datetime(2023, 12, 27, 0, 0, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 0, 30, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5},
+            {'start': datetime.datetime(2023, 12, 27, 0, 30, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 1, 0, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5},
+            {'start': datetime.datetime(2023, 12, 27, 1, 0, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 1, 30, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5}
+        ]
+        self.assertEqual(expected, rates)
+
+    def test_extend_to(self):
+        rates = [{'start': datetime.datetime(2023, 12, 27, 22, 30, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 23, 0, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5}]
+        tariff.extend_to(rates, datetime.datetime(2023, 12, 28, 0, 0, tzinfo=datetime.timezone.utc))
+        expected = [
+            {'start': datetime.datetime(2023, 12, 27, 22, 30, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 23, 0, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5},
+            {'start': datetime.datetime(2023, 12, 27, 23, 0, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 27, 23, 30, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5},
+            {'start': datetime.datetime(2023, 12, 27, 23, 30, tzinfo=datetime.timezone.utc), 'end': datetime.datetime(2023, 12, 28, 0, 0, tzinfo=datetime.timezone.utc), 'value_inc_vat': 0.5}
+        ]
+        self.assertEqual(expected, rates)
+
+    def test_calculate_tariff(self):
         config = {"tariff_name": "Test",
                   "tariff_provider": "Test",
                   "tariff_breaks" : [0.1, 0.2, 0.3],
                   "tariff_pricing": ["average", "average", "average", "average"]}
         day = datetime.date(2023, 12, 27)
-        rates = tariff.Rates()
-        rates.previous_day = prev_rates
-        rates.current_day = today_rates
-        rates.next_day = next_rates
-        data = tariff.calculate_tariff_data(config, day, rates)
+        import_rates = tariff.Rates()
+        import_rates.previous_day = prev_rates
+        import_rates.current_day = today_rates
+        import_rates.next_day = next_rates
+        export_rates = tariff.Rates()
+        data = tariff.calculate_tariff_data(config, day, import_rates, export_rates)
         print(json.dumps(data))

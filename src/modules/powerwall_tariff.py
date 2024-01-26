@@ -5,6 +5,7 @@ import itertools
 EXCLUSIVE_OFFSET = 0.000001
 
 ONE_DAY_INCREMENT = dt.timedelta(days=1)
+SLOT_TIME_INCREMENT = dt.timedelta(minutes=30)
 
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
@@ -33,8 +34,12 @@ class Rates:
             if next_day_start != current_day_end:
                 raise ValueError(f"Current to next day rates are not contiguous: {current_day_end} {next_day_start}")
 
-    def iter(self):
-        return itertools.chain(self.previous_day, self.current_day, self.next_day)
+    def between(self, start, end):
+        if self.previous_day is not None and self.current_day is not None and self.next_day is not None:
+            all_rates = itertools.chain(self.previous_day, self.current_day, self.next_day)
+            return [rate for rate in all_rates if rate["start"] >= start and rate["end"] <= end]
+        else:
+            return []
 
     def clear(self):
         self.previous_day = None
@@ -43,25 +48,35 @@ class Rates:
 
 
 class Schedule:
-    def __init__(self, charge_name, pricing):
+    def __init__(self, charge_name, import_pricing, export_pricing):
         self.charge_name = charge_name
-        self.pricing = pricing
+        self.import_pricing = import_pricing
+        self.export_pricing = export_pricing
         self._periods = []
-        self._value = None
+        self._import_value = None
+        self._export_value = None
         self._start = None
         self._end = None
 
-    def add(self, rate):
+    def add(self, import_rate, export_rate):
+        if export_rate is not None:
+            if import_rate["start"] != export_rate["start"]:
+                raise ValueError(f"Import rate and export rate are not for the same period: import was {import_rate}, export was {export_rate}")
+            if import_rate["end"] != export_rate["end"]:
+                raise ValueError(f"Import rate and export rate are not for the same period: import was {import_rate}, export was {export_rate}")
+
         if self._start is None:
-            self._start = rate["start"]
-            self._end = rate["end"]
-        elif rate['start'] == self._end:
-            self._end = rate["end"]
+            self._start = import_rate["start"]
+            self._end = import_rate["end"]
+        elif import_rate['start'] == self._end:
+            self._end = import_rate["end"]
         else:
             self._periods.append((self._start, self._end))
-            self._start = rate["start"]
-            self._end = rate["end"]
-        self.pricing.add(rate["value_inc_vat"])
+            self._start = import_rate["start"]
+            self._end = import_rate["end"]
+        self.import_pricing.add(import_rate["value_inc_vat"])
+        if export_rate is not None:
+            self.export_pricing.add(export_rate["value_inc_vat"])
 
     def get_periods(self):
         if self._start is not None:
@@ -70,10 +85,15 @@ class Schedule:
             self._end = None
         return self._periods
 
-    def get_value(self):
-        if self._value is None:
-            self._value = self.pricing.get_value()
-        return self._value
+    def get_import_value(self):
+        if self._import_value is None:
+            self._import_value = self.import_pricing.get_value()
+        return self._import_value
+
+    def get_export_value(self):
+        if self._export_value is None:
+            self._export_value = self.export_pricing.get_value()
+        return self._export_value
 
 
 def lowest_rates(rates, hrs):
@@ -144,28 +164,77 @@ class MaximumPricing():
         return self.max
 
 
+class FixedPricing:
+    def __init__(self, v):
+        self.v = float(v)
+
+    def add(self, price):
+        pass
+
+    def get_value(self):
+        return self.v
+
+
 PRICING_FUNCS = {
     "average": AveragePricing,
     "minimum": MinimumPricing,
     "maximum": MaximumPricing,
+    "fixed": FixedPricing,
 }
 
-def get_schedules(config, day_date, rates):
+
+def create_pricing(pricing_expr):
+    if '(' in pricing_expr and pricing_expr[-1] == ')':
+        sep = pricing_expr.index('(')
+        func_name = pricing_expr[:sep]
+        func_args = pricing_expr[sep+1:-1].split(',')
+    else:
+        func_name = pricing_expr
+        func_args = []
+    pricing_type = PRICING_FUNCS[func_name]
+    return pricing_type(*func_args)
+
+
+def extend_from(rates, start_time):
+    first = rates[0]
+    while first["start"] > start_time:
+        new_first = first.copy()
+        new_first["start"] = first["start"] - SLOT_TIME_INCREMENT
+        new_first["end"] = first["start"]
+        rates.insert(0, new_first)
+        first = new_first
+
+
+def extend_to(rates, end_time):
+    last = rates[-1]
+    while last["end"] < end_time:
+        new_last = last.copy()
+        new_last["start"] = last["end"]
+        new_last["end"] = last["end"] + SLOT_TIME_INCREMENT
+        rates.append(new_last)
+        last = new_last
+
+
+def get_schedules(config, day_date, import_rates, export_rates):
     day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
     day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
 
     # filter down to the given day
-    day_rates = [rate for rate in rates.iter() if rate["start"] >= day_start and rate["end"] <= day_end]
+    day_import_rates = import_rates.between(day_start, day_end)
+    day_export_rates = export_rates.between(day_start, day_end)
 
-    if len(day_rates) == 0:
+    if len(day_import_rates) == 0:
         return None
 
     # pad rates to cover 24 hours
-    day_rates[0]["start"] = day_start
-    day_rates[-1]["end"] = day_end
+    extend_from(day_import_rates, day_start)
+    extend_to(day_import_rates, day_end)
+    if len(day_export_rates) > 0:
+        extend_from(day_export_rates, day_start)
+        extend_to(day_export_rates, day_end)
 
     plunge_pricing = False
-    for rate in day_rates:
+    for rate in day_import_rates:
         if rate["value_inc_vat"] < 0.0:
             plunge_pricing = True
             break
@@ -185,31 +254,37 @@ def get_schedules(config, day_date, rates):
             sep = br.index('(')
             func_name = br[:sep]
             func_args = br[sep+1:-1].split(',')
-            v = RATE_FUNCS[func_name](day_rates, *func_args)
+            v = RATE_FUNCS[func_name](day_import_rates, *func_args)
         else:
             raise ValueError(f"Invalid threshold: {br}")
         breaks.append(v)
 
-    configured_pricing = config["tariff_pricing"]
-    if len(configured_pricing) != len(CHARGE_NAMES):
-        raise ValueError(f"{len(CHARGE_NAMES)} pricing functions must be specified")
+    configured_import_pricing = config.get("import_tariff_pricing")
+    if configured_import_pricing is None:
+        configured_import_pricing = config["tariff_pricing"]
+    if len(configured_import_pricing) != len(CHARGE_NAMES):
+        raise ValueError(f"{len(CHARGE_NAMES)} import_pricing functions must be specified")
+
+    configured_export_pricing = config.get("export_tariff_pricing", ["fixed(0.0)"] * len(CHARGE_NAMES))
+    if len(configured_export_pricing) != len(CHARGE_NAMES):
+        raise ValueError(f"{len(CHARGE_NAMES)} export_pricing functions must be specified")
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
-        pricing_type = PRICING_FUNCS[configured_pricing[i]]
-        pricing = pricing_type()
-        schedules.append(Schedule(charge_name, pricing))
+        import_pricing = create_pricing(configured_import_pricing[i])
+        export_pricing = create_pricing(configured_export_pricing[i])
+        schedules.append(Schedule(charge_name, import_pricing, export_pricing))
 
-    for rate in day_rates:
-        v = rate['value_inc_vat']
+    for import_rate, export_rate in itertools.zip_longest(day_import_rates, day_export_rates):
+        import_cost = import_rate['value_inc_vat']
         schedule = None
         for i, br in enumerate(breaks):
-            if v < br:
+            if import_cost < br:
                 schedule = schedules[i]
                 break
         if schedule is None:
             schedule = schedules[-1]
-        schedule.add(rate)
+        schedule.add(import_rate, export_rate)
 
     return schedules
 
@@ -227,8 +302,8 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period):
     }
 
 
-def calculate_tariff_data(config, day_date, rates):
-    schedules = get_schedules(config, day_date, rates)
+def calculate_tariff_data(config, day_date, import_rates, export_rates):
+    schedules = get_schedules(config, day_date, import_rates, export_rates)
     if schedules is None:
         return
 
@@ -240,8 +315,8 @@ def calculate_tariff_data(config, day_date, rates):
         for period in schedule.get_periods():
             charge_periods.append(to_charge_period_json(0, 6, period))
         tou_periods[schedule.charge_name] = charge_periods
-        buy_price_info[schedule.charge_name] = schedule.get_value()
-        sell_price_info[schedule.charge_name] = 0.0
+        buy_price_info[schedule.charge_name] = schedule.get_import_value()
+        sell_price_info[schedule.charge_name] = schedule.get_export_value()
 
     plan = config["tariff_name"]
     provider = config["tariff_provider"]

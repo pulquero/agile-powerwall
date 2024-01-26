@@ -28,7 +28,7 @@ using
 	            tariff_provider: Octopus
 	            import_mpan: <mpan>
 	            tariff_breaks: [0.10, 0.20, 0.30]
-	            tariff_pricing: ["average", "average", "maximum", "maximum"]
+	            import_tariff_pricing: ["average", "average", "maximum", "maximum"]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
 
 ## Configuration
@@ -43,6 +43,8 @@ using
 
 `import_mpan`: MPAN to use for import rates
 
+`export_mpan`: MPAN to use for export rates if you have one
+
 `tariff_breaks`: Powerwall currently only supports four pricing levels: Peak, Mid-Peak, Off-Peak and Super Off-Peak.
 Dynamic pricing therefore has to be mapped to these four levels.
 The `tariff_breaks` represent the thresholds for each level.
@@ -50,7 +52,9 @@ So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.1
 
 `plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
 
-`tariff_pricing`: determines how to calculate the price of each pricing level from the actual prices assigned to a level.
+`import_tariff_pricing`: determines how to calculate the price of each import pricing level from the actual prices assigned to a level.
+
+`export_tariff_pricing`: determines how to calculate the price of each export pricing level from the actual prices assigned to a level.
 
 
 ### Computed thresholds

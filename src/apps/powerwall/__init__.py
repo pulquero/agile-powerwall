@@ -4,6 +4,7 @@ import teslapy_wrapper as api_wrapper
 
 
 IMPORT_RATES = tariff.Rates()
+EXPORT_RATES = tariff.Rates()
 
 
 def debug(msg):
@@ -12,8 +13,11 @@ def debug(msg):
 
 def get_rates(mpan):
     import_mpan = pyscript.app_config["import_mpan"]
+    export_mpan = pyscript.app_config.get("export_mpan")
     if mpan == import_mpan:
         return IMPORT_RATES
+    elif mpan == export_mpan:
+        return EXPORT_RATES
     else:
         return None
 
@@ -52,7 +56,7 @@ def update_powerwall_tariff():
         debug(str(err))
         return
 
-    tariff_data = tariff.calculate_tariff_data(pyscript.app_config, dt.date.today(), IMPORT_RATES)
+    tariff_data = tariff.calculate_tariff_data(pyscript.app_config, dt.date.today(), IMPORT_RATES, EXPORT_RATES)
 
     debug(f"Tariff data:\n{tariff_data}")
 
@@ -65,6 +69,7 @@ def update_powerwall_tariff():
     debug("Powerwall updated")
 
     IMPORT_RATES.clear()
+    EXPORT_RATES.clear()
 
 
 @service("powerwall.set_settings")
