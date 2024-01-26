@@ -13,11 +13,15 @@ next_rates = []
 
 
 class TestTariff(unittest.TestCase):
-    def test(self):
+    def testCalculateTariff(self):
         config = {"tariff_name": "Test",
                   "tariff_provider": "Test",
-                  "tariff_breaks" : [0.1, 0.2, 0.3]}
+                  "tariff_breaks" : [0.1, 0.2, 0.3],
+                  "tariff_pricing": ["average", "average", "average", "average"]}
         day = datetime.date(2023, 12, 27)
-        rates = itertools.chain(prev_rates, today_rates, next_rates)
+        rates = tariff.Rates()
+        rates.previous_day = prev_rates
+        rates.current_day = today_rates
+        rates.next_day = next_rates
         data = tariff.calculate_tariff_data(config, day, rates)
         print(json.dumps(data))
