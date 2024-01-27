@@ -3,6 +3,18 @@ import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
 
 
+def get_mpan(config_key, required):
+    v = pyscript.app_config.get(config_key)
+    if v is None and required:
+        raise KeyError(f"{config_key} missing")
+    if type(v) is int:
+        v = str(v)
+    return v
+
+
+IMPORT_MPAN = get_mpan("import_mpan", True)
+EXPORT_MPAN = get_mpan("export_mpan", False)
+
 IMPORT_RATES = tariff.Rates()
 EXPORT_RATES = tariff.Rates()
 
@@ -12,11 +24,9 @@ def debug(msg):
 
 
 def get_rates(mpan):
-    import_mpan = pyscript.app_config["import_mpan"]
-    export_mpan = pyscript.app_config.get("export_mpan")
-    if mpan == import_mpan:
+    if mpan == IMPORT_MPAN:
         return IMPORT_RATES
-    elif mpan == export_mpan:
+    elif mpan == EXPORT_MPAN:
         return EXPORT_RATES
     else:
         return None
