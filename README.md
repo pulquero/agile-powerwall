@@ -16,7 +16,7 @@ using
 
 1.   Install Home Assistant Octopus Energy integration.
 2.   Install Pyscript integration.
-3.   Copy the contents of the `src` directory to the Home Assistant directory `/config/pyscript`.
+3.   Unzip the [release zip](https://github.com/pulquero/agile-powerwall/releases/latest) into the Home Assistant directory `/config`.
 4.   Add Pyscript app configuration:
 
 	pyscript:
