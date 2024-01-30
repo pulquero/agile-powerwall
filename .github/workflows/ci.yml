@@ -15,12 +15,18 @@ jobs:
     - name: Run tests
       run: |
         export PYTHONPATH=src/modules
+        python -m pip install --upgrade pip
+        python -m pip install jenkspy
         python -m unittest discover tests
     - name: Build zip
       run: |
+        wget -O jenkspy.zip https://github.com/pulquero/jenkspy/archive/refs/heads/master.zip
+        unzip jenkspy.zip
         mkdir dist
         mkdir dist/pyscript
+        mkdir dist/pyscript_packages
         cp -R src/* dist/pyscript/
+        cp -R jenkspy-master/jenkspy dist/pyscript_packages/
         cd dist
         zip -r agile-powerwall.zip * -x "*/__pycache__/*" "*/__pycache__/"
     - name: Release zips

@@ -48,7 +48,7 @@ using
 `tariff_breaks`: Powerwall currently only supports four pricing levels: Peak, Mid-Peak, Off-Peak and Super Off-Peak.
 Dynamic pricing therefore has to be mapped to these four levels.
 The `tariff_breaks` represent the thresholds for each level.
-So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.10 and £0.20 to Off-Peak, between £0.20 and £0.30 to Mid-peak, and above £0.30 to Peak.
+So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.10 and £0.20 to Off-Peak, between £0.20 and £0.30 to Mid-peak, and above £0.30 to Peak. **Use** `tariff_breaks: jenks` **to optimally calculate the breaks.**
 
 `plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
 

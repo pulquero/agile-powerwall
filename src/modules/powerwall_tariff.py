@@ -1,5 +1,10 @@
 import datetime as dt
 import itertools
+import sys
+
+if "/config/pyscript_packages" not in sys.path:
+    sys.path.append("/config/pyscript_packages")
+import jenkspy
 
 
 EXCLUSIVE_OFFSET = 0.000001
@@ -9,6 +14,7 @@ SLOT_TIME_INCREMENT = dt.timedelta(minutes=30)
 
 CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
+PRICE_KEY = "value_inc_vat"
 PRICE_CAP = 1.00
 
 
@@ -74,9 +80,9 @@ class Schedule:
             self._periods.append((self._start, self._end))
             self._start = import_rate["start"]
             self._end = import_rate["end"]
-        self.import_pricing.add(import_rate["value_inc_vat"])
+        self.import_pricing.add(import_rate[PRICE_KEY])
         if export_rate is not None:
-            self.export_pricing.add(export_rate["value_inc_vat"])
+            self.export_pricing.add(export_rate[PRICE_KEY])
 
     def get_periods(self):
         if self._start is not None:
@@ -97,7 +103,7 @@ class Schedule:
 
 
 def lowest_rates(rates, hrs):
-    prices = [r["value_inc_vat"] for r in rates]
+    prices = [r[PRICE_KEY] for r in rates]
     prices.sort()
     n = round(2.0*float(hrs))
     limit = prices[n-1] if n <= len(prices) else prices[-1]
@@ -105,7 +111,7 @@ def lowest_rates(rates, hrs):
 
 
 def highest_rates(rates, hrs):
-    prices = [r["value_inc_vat"] for r in rates]
+    prices = [r[PRICE_KEY] for r in rates]
     prices.sort(reverse=True)
     n = round(2.0*float(hrs))
     limit = prices[n-1] if n <= len(prices) else prices[-1]
@@ -235,7 +241,7 @@ def get_schedules(config, day_date, import_rates, export_rates):
 
     plunge_pricing = False
     for rate in day_import_rates:
-        if rate["value_inc_vat"] < 0.0:
+        if rate[PRICE_KEY] < 0.0:
             plunge_pricing = True
             break
 
@@ -243,21 +249,25 @@ def get_schedules(config, day_date, import_rates, export_rates):
         configured_breaks = config["plunge_pricing_tariff_breaks"]
     else:
         configured_breaks = config["tariff_breaks"]
-    if len(configured_breaks) != len(CHARGE_NAMES)-1:
+    if type(configured_breaks) == list and len(configured_breaks) != len(CHARGE_NAMES)-1:
         raise ValueError(f"{len(CHARGE_NAMES)-1} breaks must be specified")
 
-    breaks = []
-    for br in configured_breaks:
-        if isinstance(br, float) or isinstance(br, int):
-            v = br
-        elif isinstance(br, str) and '(' in br and br[-1] == ')':
-            sep = br.index('(')
-            func_name = br[:sep]
-            func_args = br[sep+1:-1].split(',')
-            v = RATE_FUNCS[func_name](day_import_rates, *func_args)
-        else:
-            raise ValueError(f"Invalid threshold: {br}")
-        breaks.append(v)
+    if configured_breaks == "jenks":
+        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in day_import_rates], n_classes=len(CHARGE_NAMES))
+        breaks = bounds[1:-1]
+    else:
+        breaks = []
+        for br in configured_breaks:
+            if isinstance(br, float) or isinstance(br, int):
+                v = br
+            elif isinstance(br, str) and '(' in br and br[-1] == ')':
+                sep = br.index('(')
+                func_name = br[:sep]
+                func_args = br[sep+1:-1].split(',')
+                v = RATE_FUNCS[func_name](day_import_rates, *func_args)
+            else:
+                raise ValueError(f"Invalid threshold: {br}")
+            breaks.append(v)
 
     configured_import_pricing = config.get("import_tariff_pricing")
     if configured_import_pricing is None:
@@ -276,7 +286,7 @@ def get_schedules(config, day_date, import_rates, export_rates):
         schedules.append(Schedule(charge_name, import_pricing, export_pricing))
 
     for import_rate, export_rate in itertools.zip_longest(day_import_rates, day_export_rates):
-        import_cost = import_rate['value_inc_vat']
+        import_cost = import_rate[PRICE_KEY]
         schedule = None
         for i, br in enumerate(breaks):
             if import_cost < br:
