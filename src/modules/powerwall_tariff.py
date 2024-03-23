@@ -2,6 +2,7 @@ import datetime as dt
 import itertools
 import sys
 
+
 if "/config/pyscript_packages" not in sys.path:
     sys.path.append("/config/pyscript_packages")
 import jenkspy
@@ -20,12 +21,27 @@ PRICE_CAP = 1.00
 
 class Rates:
     def __init__(self):
-        self.previous_day = None
-        self.current_day = None
-        self.next_day = None
+        self.previous_day = []
+        self._previous_day_updated = False
+        self.current_day = []
+        self._current_day_updated = False
+        self.next_day = []
+        self._next_day_updated = False
+
+    def update_previous_day(self, rates):
+        self.previous_day = rates
+        self._previous_day_updated = True
+
+    def update_current_day(self, rates):
+        self.current_day = rates
+        self._current_day_updated = True
+
+    def update_next_day(self, rates):
+        self.next_day = rates
+        self._next_day_updated = True
 
     def is_valid(self):
-        if self.previous_day is None or self.current_day is None or self.next_day is None:
+        if not self._previous_day_updated or not self._current_day_updated or not self._next_day_updated:
             raise ValueError("Waiting for rate data")
 
         if len(self.previous_day) > 0 and len(self.current_day) > 0:
@@ -41,16 +57,13 @@ class Rates:
                 raise ValueError(f"Current to next day rates are not contiguous: {current_day_end} {next_day_start}")
 
     def between(self, start, end):
-        if self.previous_day is not None and self.current_day is not None and self.next_day is not None:
-            all_rates = itertools.chain(self.previous_day, self.current_day, self.next_day)
-            return [rate for rate in all_rates if rate["start"] >= start and rate["end"] <= end]
-        else:
-            return []
+        all_rates = itertools.chain(self.previous_day, self.current_day, self.next_day)
+        return [rate for rate in all_rates if rate["start"] >= start and rate["end"] <= end]
 
-    def clear(self):
-        self.previous_day = None
-        self.current_day = None
-        self.next_day = None
+    def reset(self):
+        self._previous_day_updated = False
+        self._current_day_updated = False
+        self._next_day_updated = False
 
 
 class Schedule:

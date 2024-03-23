@@ -37,7 +37,7 @@ def refresh_previous_day_rates(mpan, rates, **kwargs):
     debug(f"Previous day rates for mpan {mpan}:\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.previous_day = rates
+        mpan_rates.update_previous_day(rates)
         update_powerwall_tariff()
 
 
@@ -46,7 +46,7 @@ def refresh_current_day_rates(mpan, rates, **kwargs):
     debug(f"Current day rates for mpan {mpan}:\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.current_day = rates
+        mpan_rates.update_current_day(rates)
         update_powerwall_tariff()
 
 
@@ -55,7 +55,7 @@ def refresh_next_day_rates(mpan, rates, **kwargs):
     debug(f"Next day rates for mpan {mpan}:\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.next_day = rates
+        mpan_rates.update_next_day(rates)
         update_powerwall_tariff()
 
 
@@ -66,6 +66,20 @@ def update_powerwall_tariff():
         debug(str(err))
         return
 
+    if EXPORT_MPAN:
+        try:
+            EXPORT_RATES.is_valid()
+        except ValueError as err:
+            debug(str(err))
+            return
+
+    _update_powerwall_tariff()
+
+    IMPORT_RATES.reset()
+    EXPORT_RATES.reset()
+
+
+def _update_powerwall_tariff():
     tariff_data = tariff.calculate_tariff_data(pyscript.app_config, dt.date.today(), IMPORT_RATES, EXPORT_RATES)
 
     debug(f"Tariff data:\n{tariff_data}")
@@ -78,8 +92,14 @@ def update_powerwall_tariff():
 
     debug("Powerwall updated")
 
-    IMPORT_RATES.clear()
-    EXPORT_RATES.clear()
+
+@service("powerwall.refresh_tariff_data")
+def refresh_tariff_data():
+    """yaml
+    name: Refresh Powerwall tariff data
+    description: Immediately refreshes Powerwall tariff data with the current values
+    """
+    _update_powerwall_tariff()
 
 
 @service("powerwall.set_settings")
