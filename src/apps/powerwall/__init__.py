@@ -59,11 +59,19 @@ def refresh_next_day_rates(mpan, rates, **kwargs):
         update_powerwall_tariff()
 
 
+def set_status_message(value):
+    try:
+        input_text.powerwall_tariff_update_status = value
+    except:
+        pass
+
+
 def update_powerwall_tariff():
     try:
         IMPORT_RATES.is_valid()
     except ValueError as err:
         debug(str(err))
+        set_status_message("Waiting for updated import tariffs")
         return
 
     if EXPORT_MPAN:
@@ -71,6 +79,7 @@ def update_powerwall_tariff():
             EXPORT_RATES.is_valid()
         except ValueError as err:
             debug(str(err))
+            set_status_message("Waiting for updated export tariffs")
             return
 
     _update_powerwall_tariff()
@@ -80,7 +89,11 @@ def update_powerwall_tariff():
 
 
 def _update_powerwall_tariff():
-    tariff_data = tariff.calculate_tariff_data(pyscript.app_config, dt.date.today(), IMPORT_RATES, EXPORT_RATES)
+    schedules = tariff.get_schedules(pyscript.app_config, dt.date.today(), IMPORT_RATES, EXPORT_RATES)
+    if schedules is None:
+        return
+
+    tariff_data = tariff.to_tariff_data(pyscript.app_config, schedules)
 
     debug(f"Tariff data:\n{tariff_data}")
 
@@ -91,6 +104,8 @@ def _update_powerwall_tariff():
     )
 
     debug("Powerwall updated")
+    breaks = [s.upper_bound for s in schedules if s.upper_bound is not None]
+    set_status_message(f"Tariff data updated at {dt.datetime.now()} (breaks: {breaks})")
 
 
 @service("powerwall.refresh_tariff_data")

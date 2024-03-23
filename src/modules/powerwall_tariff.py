@@ -57,8 +57,11 @@ class Rates:
                 raise ValueError(f"Current to next day rates are not contiguous: {current_day_end} {next_day_start}")
 
     def between(self, start, end):
-        all_rates = itertools.chain(self.previous_day, self.current_day, self.next_day)
-        return [rate for rate in all_rates if rate["start"] >= start and rate["end"] <= end]
+        if self.previous_day or self.current_day or self.next_day:  # pyscript doesn't like empty list comprehensions
+            all_rates = itertools.chain(self.previous_day, self.current_day, self.next_day)
+            return [rate for rate in all_rates if rate["start"] >= start and rate["end"] <= end]
+        else:
+            return []
 
     def reset(self):
         self._previous_day_updated = False
@@ -67,8 +70,9 @@ class Rates:
 
 
 class Schedule:
-    def __init__(self, charge_name, import_pricing, export_pricing):
+    def __init__(self, charge_name, upper_bound, import_pricing, export_pricing):
         self.charge_name = charge_name
+        self.upper_bound = upper_bound
         self.import_pricing = import_pricing
         self.export_pricing = export_pricing
         self._periods = []
@@ -294,9 +298,10 @@ def get_schedules(config, day_date, import_rates, export_rates):
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
+        upper_bound = breaks[i] if i < len(breaks) else None
         import_pricing = create_pricing(configured_import_pricing[i])
         export_pricing = create_pricing(configured_export_pricing[i])
-        schedules.append(Schedule(charge_name, import_pricing, export_pricing))
+        schedules.append(Schedule(charge_name, upper_bound, import_pricing, export_pricing))
 
     for import_rate, export_rate in itertools.zip_longest(day_import_rates, day_export_rates):
         import_cost = import_rate[PRICE_KEY]
@@ -325,11 +330,7 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period):
     }
 
 
-def calculate_tariff_data(config, day_date, import_rates, export_rates):
-    schedules = get_schedules(config, day_date, import_rates, export_rates)
-    if schedules is None:
-        return
-
+def to_tariff_data(config, schedules):
     tou_periods = {}
     buy_price_info = {}
     sell_price_info = {}
@@ -366,4 +367,13 @@ def calculate_tariff_data(config, day_date, import_rates, export_rates):
                                         "Summer": sell_price_info,
                                         "Winter": {}}}
     }
+    return tariff_data
+
+
+def calculate_tariff_data(config, day_date, import_rates, export_rates):
+    schedules = get_schedules(config, day_date, import_rates, export_rates)
+    if schedules is None:
+        return
+
+    tariff_data = to_tariff_data(config, schedules)
     return tariff_data

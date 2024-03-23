@@ -31,6 +31,9 @@ using
 	            import_tariff_pricing: ["average", "average", "maximum", "maximum"]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
 
+5.   Optionally, create an `input_text` helper called `powerwall_tariff_update_status` if you want status messages.
+
+
 ## Configuration
 
 `email`: E-mail address of your Tesla account.
