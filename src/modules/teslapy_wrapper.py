@@ -17,6 +17,14 @@ def set_powerwall_tariff(email, refresh_token, tariff_data):
 
 
 @pyscript_executor
+def get_powerwall_tariff(email, refresh_token):
+    with teslapy.Tesla(email) as tesla:
+        tesla.refresh_token(refresh_token=refresh_token)
+        pw = tesla.battery_list()[0]
+        return pw.get_tariff()
+
+
+@pyscript_executor
 def set_powerwall_settings(email, refresh_token, reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
     with teslapy.Tesla(email) as tesla:
         tesla.refresh_token(refresh_token=refresh_token)

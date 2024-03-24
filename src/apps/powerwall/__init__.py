@@ -117,6 +117,18 @@ def refresh_tariff_data():
     _update_powerwall_tariff()
 
 
+@service("powerwall.get_tariff_data", supports_response="only")
+def get_tariff_data():
+    """yaml
+    name: Fetches Powerwall tariff data
+    description: Fetches Powerwall tariff data
+    """
+    return api_wrapper.get_powerwall_tariff(
+        email=pyscript.app_config["email"],
+        refresh_token=pyscript.app_config["refresh_token"]
+    )
+
+
 @service("powerwall.set_settings")
 def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
     """yaml
