@@ -42,7 +42,14 @@ class Rates:
 
     def is_valid(self):
         if not self._previous_day_updated or not self._current_day_updated or not self._next_day_updated:
-            raise ValueError("Waiting for rate data")
+            pending = []
+            if not self._previous_day_updated:
+                pending.append("previous day")
+            if not self._current_day_updated:
+                pending.append("current day")
+            if not self._next_day_updated:
+                pending.append("next day")
+            raise ValueError(f"Waiting for rate data: {', '.join(pending)}")
 
         if len(self.previous_day) > 0 and len(self.current_day) > 0:
             previous_day_end = self.previous_day[-1]["end"]

@@ -70,16 +70,18 @@ def update_powerwall_tariff():
     try:
         IMPORT_RATES.is_valid()
     except ValueError as err:
-        debug(str(err))
-        set_status_message("Waiting for updated import tariffs")
+        msg = f"Import tariffs: {err}"
+        debug(msg)
+        set_status_message(msg)
         return
 
     if EXPORT_MPAN:
         try:
             EXPORT_RATES.is_valid()
         except ValueError as err:
-            debug(str(err))
-            set_status_message("Waiting for updated export tariffs")
+            msg = f"Export tariffs: {err}"
+            debug(msg)
+            set_status_message(msg)
             return
 
     _update_powerwall_tariff()
