@@ -139,7 +139,7 @@ def highest_rates(rates, hrs):
     prices.sort(reverse=True)
     n = round(2.0*float(hrs))
     limit = prices[n-1] if n <= len(prices) else prices[-1]
-    return limit + EXCLUSIVE_OFFSET
+    return limit
 
 
 RATE_FUNCS = {
@@ -278,7 +278,7 @@ def get_schedules(config, day_date, import_rates, export_rates):
 
     if configured_breaks == "jenks":
         bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in day_import_rates], n_classes=len(CHARGE_NAMES))
-        breaks = bounds[1:-1]
+        breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
     else:
         breaks = []
         for br in configured_breaks:
