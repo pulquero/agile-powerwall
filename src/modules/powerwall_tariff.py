@@ -18,6 +18,8 @@ CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 PRICE_KEY = "value_inc_vat"
 PRICE_CAP = 1.00
 
+DEFAULT_EXPORT_PRICING = ["fixed(0.0)"] * len(CHARGE_NAMES)
+
 
 class Rates:
     def __init__(self):
@@ -77,36 +79,30 @@ class Rates:
 
 
 class Schedule:
-    def __init__(self, charge_name, upper_bound, import_pricing, export_pricing):
+    def __init__(self, charge_name, lower_bound, upper_bound, pricing_func):
         self.charge_name = charge_name
+        self.lower_bound = lower_bound
         self.upper_bound = upper_bound
-        self.import_pricing = import_pricing
-        self.export_pricing = export_pricing
+        self.pricing_func = pricing_func
         self._periods = []
-        self._import_value = None
-        self._export_value = None
+        self._value = None
         self._start = None
         self._end = None
 
-    def add(self, import_rate, export_rate):
-        if export_rate is not None:
-            if import_rate["start"] != export_rate["start"]:
-                raise ValueError(f"Import rate and export rate are not for the same period: import was {import_rate}, export was {export_rate}")
-            if import_rate["end"] != export_rate["end"]:
-                raise ValueError(f"Import rate and export rate are not for the same period: import was {import_rate}, export was {export_rate}")
+    def is_in(self, rate):
+        return (self.lower_bound is None or rate >= self.lower_bound) and (self.upper_bound is None or rate < self.upper_bound)
 
+    def add(self, rate):
         if self._start is None:
-            self._start = import_rate["start"]
-            self._end = import_rate["end"]
-        elif import_rate['start'] == self._end:
-            self._end = import_rate["end"]
+            self._start = rate["start"]
+            self._end = rate["end"]
+        elif rate['start'] == self._end:
+            self._end = rate["end"]
         else:
             self._periods.append((self._start, self._end))
-            self._start = import_rate["start"]
-            self._end = import_rate["end"]
-        self.import_pricing.add(import_rate[PRICE_KEY])
-        if export_rate is not None:
-            self.export_pricing.add(export_rate[PRICE_KEY])
+            self._start = rate["start"]
+            self._end = rate["end"]
+        self.pricing_func.add(rate[PRICE_KEY])
 
     def get_periods(self):
         if self._start is not None:
@@ -115,15 +111,10 @@ class Schedule:
             self._end = None
         return self._periods
 
-    def get_import_value(self):
-        if self._import_value is None:
-            self._import_value = self.import_pricing.get_value()
-        return self._import_value
-
-    def get_export_value(self):
-        if self._export_value is None:
-            self._export_value = self.export_pricing.get_value()
-        return self._export_value
+    def get_value(self):
+        if self._value is None:
+            self._value = self.pricing_func.get_value()
+        return self._value
 
 
 def lowest_rates(rates, hrs):
@@ -245,81 +236,81 @@ def extend_to(rates, end_time):
         last = new_last
 
 
-def get_schedules(config, day_date, import_rates, export_rates):
-    day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
-    day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
-
-    # filter down to the given day
-    day_import_rates = import_rates.between(day_start, day_end)
-    day_export_rates = export_rates.between(day_start, day_end)
-
-    if len(day_import_rates) == 0:
-        return None
-
-    # pad rates to cover 24 hours
-    extend_from(day_import_rates, day_start)
-    extend_to(day_import_rates, day_end)
-    if len(day_export_rates) > 0:
-        extend_from(day_export_rates, day_start)
-        extend_to(day_export_rates, day_end)
-
-    plunge_pricing = False
-    for rate in day_import_rates:
-        if rate[PRICE_KEY] < 0.0:
-            plunge_pricing = True
-            break
-
-    if "plunge_pricing_tariff_breaks" in config and plunge_pricing:
-        configured_breaks = config["plunge_pricing_tariff_breaks"]
-    else:
-        configured_breaks = config["tariff_breaks"]
-    if type(configured_breaks) == list and len(configured_breaks) != len(CHARGE_NAMES)-1:
-        raise ValueError(f"{len(CHARGE_NAMES)-1} breaks must be specified")
-
-    if configured_breaks == "jenks":
-        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in day_import_rates], n_classes=len(CHARGE_NAMES))
+def get_breaks(break_config, rates):
+    if break_config == "jenks":
+        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(CHARGE_NAMES))
         breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
     else:
         breaks = []
-        for br in configured_breaks:
+        for br in break_config:
             if isinstance(br, float) or isinstance(br, int):
                 v = br
             elif isinstance(br, str) and '(' in br and br[-1] == ')':
                 sep = br.index('(')
                 func_name = br[:sep]
                 func_args = br[sep+1:-1].split(',')
-                v = RATE_FUNCS[func_name](day_import_rates, *func_args)
+                v = RATE_FUNCS[func_name](rates, *func_args)
             else:
                 raise ValueError(f"Invalid threshold: {br}")
             breaks.append(v)
+        # ensure ascending order
+        breaks.sort()
 
-    configured_import_pricing = config.get("import_tariff_pricing")
-    if configured_import_pricing is None:
-        configured_import_pricing = config["tariff_pricing"]
-    if len(configured_import_pricing) != len(CHARGE_NAMES):
-        raise ValueError(f"{len(CHARGE_NAMES)} import_pricing functions must be specified")
+    return breaks
 
-    configured_export_pricing = config.get("export_tariff_pricing", ["fixed(0.0)"] * len(CHARGE_NAMES))
-    if len(configured_export_pricing) != len(CHARGE_NAMES):
-        raise ValueError(f"{len(CHARGE_NAMES)} export_pricing functions must be specified")
+
+def populate_schedules(schedules, day_rates):
+    for rate in day_rates:
+        cost = rate[PRICE_KEY]
+        schedule = None
+        for s in schedules:
+            if s.is_in(cost):
+                schedule = s
+                break
+        schedule.add(rate)
+
+
+def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_config, day_date, rates):
+    day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
+    day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
+
+    # filter down to the given day
+    day_rates = rates.between(day_start, day_end)
+
+    if len(day_rates) == 0:
+        return None
+
+    # pad rates to cover 24 hours
+    extend_from(day_rates, day_start)
+    extend_to(day_rates, day_end)
+
+    plunge_pricing = False
+    for rate in day_rates:
+        if rate[PRICE_KEY] < 0.0:
+            plunge_pricing = True
+            break
+
+    if plunge_pricing and plunge_pricing_breaks_config:
+        configured_breaks = plunge_pricing_breaks_config
+    else:
+        configured_breaks = breaks_config
+    if type(configured_breaks) == list and len(configured_breaks) != len(CHARGE_NAMES)-1:
+        raise ValueError(f"{len(CHARGE_NAMES)-1} breaks must be specified")
+
+    breaks = get_breaks(configured_breaks, day_rates)
+
+    configured_pricing = tariff_pricing_config
+    if len(configured_pricing) != len(CHARGE_NAMES):
+        raise ValueError(f"{len(CHARGE_NAMES)} import_tariff_pricing functions must be specified")
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
+        lower_bound = breaks[i-1] if i > 0 else None
         upper_bound = breaks[i] if i < len(breaks) else None
-        import_pricing = create_pricing(configured_import_pricing[i])
-        export_pricing = create_pricing(configured_export_pricing[i])
-        schedules.append(Schedule(charge_name, upper_bound, import_pricing, export_pricing))
+        pricing_func = create_pricing(configured_pricing[i])
+        schedules.append(Schedule(charge_name, lower_bound, upper_bound, pricing_func))
 
-    for import_rate, export_rate in itertools.zip_longest(day_import_rates, day_export_rates):
-        import_cost = import_rate[PRICE_KEY]
-        schedule = None
-        for i, br in enumerate(breaks):
-            if import_cost < br:
-                schedule = schedules[i]
-                break
-        if schedule is None:
-            schedule = schedules[-1]
-        schedule.add(import_rate, export_rate)
+    populate_schedules(schedules, day_rates)
 
     return schedules
 
@@ -337,24 +328,29 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period):
     }
 
 
-def to_tariff_data(config, schedules):
+def schedule_to_tariff(schedules):
     tou_periods = {}
-    buy_price_info = {}
-    sell_price_info = {}
+    price_info = {}
+
     for schedule in schedules:
         charge_periods = []
         for period in schedule.get_periods():
             charge_periods.append(to_charge_period_json(0, 6, period))
         tou_periods[schedule.charge_name] = charge_periods
-        buy_price_info[schedule.charge_name] = schedule.get_import_value()
-        sell_price_info[schedule.charge_name] = schedule.get_export_value()
+        price_info[schedule.charge_name] = schedule.get_value()
+    return tou_periods, price_info
+
+
+def to_tariff_data(config, import_schedules, export_schedules):
+    import_tou_periods, buy_price_info = schedule_to_tariff(import_schedules)
+    export_tou_periods, sell_price_info = schedule_to_tariff(export_schedules)
 
     plan = config["tariff_name"]
     provider = config["tariff_provider"]
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
     daily_charges = [{"name": "Charge", "amount": 0}]
     seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
-                          "toMonth": 12, "tou_periods": tou_periods},
+                          "toMonth": 12, "tou_periods": import_tou_periods},
                "Winter": {"tou_periods": {}}}
     tariff_data = {
         "name": plan,
@@ -378,9 +374,9 @@ def to_tariff_data(config, schedules):
 
 
 def calculate_tariff_data(config, day_date, import_rates, export_rates):
-    schedules = get_schedules(config, day_date, import_rates, export_rates)
-    if schedules is None:
+    import_schedules, export_schedules = get_schedules(config, day_date, import_rates, export_rates)
+    if import_schedules is None:
         return
 
-    tariff_data = to_tariff_data(config, schedules)
+    tariff_data = to_tariff_data(config, import_schedules, export_schedules)
     return tariff_data

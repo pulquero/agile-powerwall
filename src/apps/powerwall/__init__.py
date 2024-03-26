@@ -90,23 +90,53 @@ def update_powerwall_tariff():
     EXPORT_RATES.reset()
 
 
+def get_breaks(config_key, required=True):
+    breaks = pyscript.app_config.get(config_key)
+    if breaks is None and required:
+        raise ValueError(f"Missing breaks config for {config_key}")
+    if breaks is not None and type(breaks) == list and len(breaks) != len(tariff.CHARGE_NAMES)-1:
+        raise ValueError(f"{len(tariff.CHARGE_NAMES)-1} breaks must be specified for {config_key}")
+    return breaks
+
+
+def get_pricing(config_key, default_value=None, required=True):
+    pricing = pyscript.app_config.get(config_key, default_value)
+    if pricing is None and required:
+        raise ValueError(f"Missing pricing config for {config_key}")
+    if pricing is not None and len(pricing) != len(tariff.CHARGE_NAMES):
+        raise ValueError(f"{len(tariff.CHARGE_NAMES)} pricing functions must be specified for {config_key}")
+    return pricing
+
+
 def _update_powerwall_tariff():
-    schedules = tariff.get_schedules(pyscript.app_config, dt.date.today(), IMPORT_RATES, EXPORT_RATES)
-    if schedules is None:
+    config = pyscript.app_config
+
+    import_breaks = get_breaks("tariff_breaks")
+    import_plunge_pricing_breaks = get_breaks("plunge_pricing_tariff_breaks", required=False)
+    import_pricing = get_pricing("import_tariff_pricing", required=False)
+    # backwards compatibility
+    if import_pricing is None:
+        import_pricing = get_pricing("tariff_pricing")
+
+    import_schedules = tariff.get_schedules(import_breaks, import_plunge_pricing_breaks, import_pricing, dt.date.today(), IMPORT_RATES)
+    if import_schedules is None:
         return
 
-    tariff_data = tariff.to_tariff_data(pyscript.app_config, schedules)
+    export_pricing = get_pricing("export_tariff_pricing", tariff.DEFAULT_EXPORT_PRICING)
+    export_schedules = tariff.get_schedules(import_breaks, None, export_pricing, dt.date.today(), EXPORT_RATES)
+
+    tariff_data = tariff.to_tariff_data(config, import_schedules, export_schedules)
 
     debug(f"Tariff data:\n{tariff_data}")
 
     api_wrapper.set_powerwall_tariff(
-        email=pyscript.app_config["email"],
-        refresh_token=pyscript.app_config["refresh_token"],
+        email=config["email"],
+        refresh_token=config["refresh_token"],
         tariff_data=tariff_data
     )
 
     debug("Powerwall updated")
-    breaks = [s.upper_bound for s in schedules if s.upper_bound is not None]
+    breaks = [s.upper_bound for s in import_schedules if s.upper_bound is not None]
     set_status_message(f"Tariff data updated at {dt.datetime.now()} (breaks: {breaks})")
 
 
