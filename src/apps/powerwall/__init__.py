@@ -206,6 +206,11 @@ def _update_powerwall_tariff():
     set_status_message(status_msg)
 
 
+@time_trigger("once(midnight + 2 min)")
+def update_tariff_data_at_start_of_day(**kwargs):
+    _update_powerwall_tariff()
+
+
 @service("powerwall.refresh_tariff_data")
 def refresh_tariff_data():
     """yaml
