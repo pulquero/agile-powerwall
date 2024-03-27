@@ -342,7 +342,7 @@ def schedule_to_tariff(schedules):
     return seasons, price_info
 
 
-def to_tariff_data(config, import_schedules, export_schedules):
+def to_tariff_data(config, import_standing_charge, export_standing_charge, import_schedules, export_schedules):
     import_seasons, buy_price_info = schedule_to_tariff(import_schedules)
     if export_schedules:
         export_seasons, sell_price_info = schedule_to_tariff(export_schedules)
@@ -353,11 +353,12 @@ def to_tariff_data(config, import_schedules, export_schedules):
     plan = config["tariff_name"]
     provider = config["tariff_provider"]
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
-    daily_charges = [{"name": "Charge", "amount": 0}]
+    import_daily_charges = [{"name": "Charge", "amount": import_standing_charge}]
+    export_daily_charges = [{"name": "Charge", "amount": export_standing_charge}]
     tariff_data = {
         "name": plan,
         "utility": provider,
-        "daily_charges": daily_charges,
+        "daily_charges": import_daily_charges,
         "demand_charges": demand_changes,
         "seasons": import_seasons,
         "energy_charges": {"ALL": {"ALL": 0},
@@ -365,7 +366,7 @@ def to_tariff_data(config, import_schedules, export_schedules):
                         "Winter": {}},
         "sell_tariff": {"name": plan,
                      "utility": provider,
-                     "daily_charges": daily_charges,
+                     "daily_charges": export_daily_charges,
                      "demand_charges": demand_changes,
                      "seasons": export_seasons,
                      "energy_charges": {"ALL": {"ALL": 0},
