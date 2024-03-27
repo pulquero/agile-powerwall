@@ -18,6 +18,8 @@ EXPORT_MPAN = get_mpan("export_mpan", False)
 IMPORT_RATES = tariff.Rates()
 EXPORT_RATES = tariff.Rates()
 
+WEEK_SCHEDULES = tariff.WeekSchedules()
+
 
 def debug(msg):
     log.debug(msg)
@@ -115,14 +117,12 @@ def get_sensor_value(config_key, default_value):
     return value
 
 
-def _update_powerwall_tariff():
-    config = pyscript.app_config
-
-    today = dt.date.today()
-
+def _update_schedules_for_day(day_date):
     # filter down to the given day
-    import_rates = IMPORT_RATES.cover_day(today)
-    export_rates = EXPORT_RATES.cover_day(today)
+    import_rates = IMPORT_RATES.cover_day(day_date)
+    if not import_rates:
+        return None, None
+    export_rates = EXPORT_RATES.cover_day(day_date)
 
     import_breaks = get_breaks("import_tariff_breaks", required=False)
     # backwards compatibility
@@ -136,7 +136,7 @@ def _update_powerwall_tariff():
 
     import_schedules = tariff.get_schedules(import_breaks, import_plunge_pricing_breaks, import_pricing, import_rates)
     if import_schedules is None:
-        return
+        return None, None
 
     if export_rates:
         export_breaks = get_breaks("export_tariff_breaks", required=False)
@@ -156,9 +156,30 @@ def _update_powerwall_tariff():
     else:
         export_schedules = None
 
+    WEEK_SCHEDULES.update(day_date, import_schedules, export_schedules)
+
+    return import_schedules, export_schedules
+
+
+def _update_powerwall_tariff():
+    config = pyscript.app_config
+
+    today = dt.date.today()
+    import_schedules, export_schedules = _update_schedules_for_day(today)
+    if import_schedules is None:
+        set_status_message("No schedules for today!")
+        return
+
+    tomorrow = today + tariff.ONE_DAY_INCREMENT
+    tomorrow_weekday = tomorrow.weekday()
+    # if tomorrow is the start of a new phase of the week
+    if tomorrow_weekday == 0 or tomorrow_weekday == 5:
+        debug("Updating schedules for tomorrow")
+        _update_schedules_for_day(tomorrow)
+
     import_standing_charge = get_sensor_value("import_standing_charge", 0)
     export_standing_charge = get_sensor_value("export_standing_charge", 0)
-    tariff_data = tariff.to_tariff_data(config, import_standing_charge, export_standing_charge, import_schedules, export_schedules)
+    tariff_data = tariff.to_tariff_data(config, import_standing_charge, export_standing_charge, WEEK_SCHEDULES, today)
 
     debug(f"Tariff data:\n{tariff_data}")
 

@@ -46,5 +46,7 @@ class TestTariff(unittest.TestCase):
 
         day_rates = import_rates.cover_day(day)
         import_schedules = tariff.get_schedules(config["import_tariff_breaks"], None, config["import_tariff_pricing"], day_rates)
-        data = tariff.to_tariff_data(config, 0, 0, import_schedules, None)
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(day, import_schedules, None)
+        data = tariff.to_tariff_data(config, 0, 0, week_schedules, day)
         print(json.dumps(data))

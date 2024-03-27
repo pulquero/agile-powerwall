@@ -45,35 +45,43 @@ def extend_to(rates, end_time):
         last = new_last
 
 
+def is_midweek(weekday):
+    return weekday >= 0 and weekday <= 4
+
+
+def _safe_less_than(x, y):
+    return y is not None and x < y
+
+
 class Rates:
     def __init__(self):
         self.previous_day = []
-        self._previous_day_updated = False
+        self._previous_day_updated = None
         self.current_day = []
-        self._current_day_updated = False
+        self._current_day_updated = None
         self.next_day = []
-        self._next_day_updated = False
+        self._next_day_updated = None
 
     def update_previous_day(self, rates):
         self.previous_day = rates
-        self._previous_day_updated = True
+        self._previous_day_updated = dt.date.today()
 
     def update_current_day(self, rates):
         self.current_day = rates
-        self._current_day_updated = True
+        self._current_day_updated = dt.date.today()
 
     def update_next_day(self, rates):
         self.next_day = rates
-        self._next_day_updated = True
+        self._next_day_updated = dt.date.today()
 
     def is_valid(self):
-        if not self._previous_day_updated or not self._current_day_updated or not self._next_day_updated:
+        if self._current_day_updated is None or self._previous_day_updated != self._current_day_updated or self._next_day_updated != self._current_day_updated:
             pending = []
-            if not self._previous_day_updated:
+            if self._previous_day_updated is None or _safe_less_than(self._previous_day_updated, self._current_day_updated) or _safe_less_than(self._previous_day_updated, self._next_day_updated):
                 pending.append("previous day")
-            if not self._current_day_updated:
+            if self._current_day_updated is None or _safe_less_than(self._current_day_updated, self._previous_day_updated) or _safe_less_than(self._current_day_updated, self._next_day_updated):
                 pending.append("current day")
-            if not self._next_day_updated:
+            if self._next_day_updated is None or _safe_less_than(self._next_day_updated, self._previous_day_updated) or _safe_less_than(self._next_day_updated, self._current_day_updated):
                 pending.append("next day")
             raise ValueError(f"Waiting for rate data: {', '.join(pending)}")
 
@@ -106,9 +114,9 @@ class Rates:
         return day_rates
 
     def reset(self):
-        self._previous_day_updated = False
-        self._current_day_updated = False
-        self._next_day_updated = False
+        self._previous_day_updated = None
+        self._current_day_updated = None
+        self._next_day_updated = None
 
 
 class Schedule:
@@ -149,6 +157,30 @@ class Schedule:
         if self._value is None:
             self._value = self.pricing_func.get_value()
         return self._value
+
+
+class WeekSchedules:
+    def __init__(self):
+        self.midweek_import = None
+        self.midweek_export = None
+        self.weekend_import = None
+        self.weekend_export = None
+
+    def update(self, day_date, import_schedules, export_schedules):
+        weekday = day_date.weekday()
+        if is_midweek(weekday):
+            self.midweek_import = import_schedules
+            self.midweek_export = export_schedules
+        else:
+            self.weekend_import = import_schedules
+            self.weekend_export = export_schedules
+
+    def get_schedules(self, day_date):
+        weekday = day_date.weekday()
+        if is_midweek(weekday):
+            return self.midweek_import, self.midweek_export
+        else:
+            return self.weekend_import, self.weekend_export
 
 
 def lowest_rates(rates, hrs):
@@ -326,26 +358,47 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period):
     }
 
 
-def schedule_to_tariff(schedules):
-    tou_periods = {}
-    price_info = {}
-
+def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_week):
     for schedule in schedules:
-        charge_periods = []
+        charge_periods = tou_periods[schedule.charge_name]
         for period in schedule.get_periods():
-            charge_periods.append(to_charge_period_json(0, 6, period))
-        tou_periods[schedule.charge_name] = charge_periods
-        price_info[schedule.charge_name] = schedule.get_value()
+            charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period))
+
+
+def schedules_to_tariff(midweek_schedules, weekend_schedules):
+    tou_periods = {charge_name: [] for charge_name in CHARGE_NAMES}
+
+    if midweek_schedules and weekend_schedules:
+        populate_tou_periods(tou_periods, midweek_schedules, 0, 4)
+        populate_tou_periods(tou_periods, midweek_schedules, 5, 6)
+    elif midweek_schedules:
+        populate_tou_periods(tou_periods, midweek_schedules, 0, 6)
+    elif weekend_schedules:
+        populate_tou_periods(tou_periods, weekend_schedules, 0, 6)
+    else:
+        raise ValueError("At least one schedule is required")
+
     seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
                           "toMonth": 12, "tou_periods": tou_periods},
                "Winter": {"tou_periods": {}}}
-    return seasons, price_info
+    return seasons
 
 
-def to_tariff_data(config, import_standing_charge, export_standing_charge, import_schedules, export_schedules):
-    import_seasons, buy_price_info = schedule_to_tariff(import_schedules)
-    if export_schedules:
-        export_seasons, sell_price_info = schedule_to_tariff(export_schedules)
+def get_price_info(schedules):
+    price_info = {}
+    for schedule in schedules:
+        price_info[schedule.charge_name] = schedule.get_value()
+    return price_info
+
+
+def to_tariff_data(config, import_standing_charge, export_standing_charge, week_schedules, day_date):
+    current_import_schedules, current_export_schedules = week_schedules.get_schedules(day_date)
+    import_seasons = schedules_to_tariff(week_schedules.midweek_import, week_schedules.weekend_import)
+    buy_price_info = get_price_info(current_import_schedules);
+
+    if week_schedules.midweek_export or week_schedules.weekend_export:
+        export_seasons = schedules_to_tariff(week_schedules.midweek_export, week_schedules.weekend_export)
+        sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons
         sell_price_info = {charge_name: 0 for charge_name in CHARGE_NAMES}
