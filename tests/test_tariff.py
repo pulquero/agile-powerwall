@@ -36,13 +36,15 @@ class TestTariff(unittest.TestCase):
     def test_calculate_tariff(self):
         config = {"tariff_name": "Test",
                   "tariff_provider": "Test",
-                  "tariff_breaks" : [0.1, 0.2, 0.3],
-                  "tariff_pricing": ["average", "average", "average", "average"]}
+                  "import_tariff_breaks" : [0.1, 0.2, 0.3],
+                  "import_tariff_pricing": ["average", "average", "average", "average"]}
         day = datetime.date(2023, 12, 27)
         import_rates = tariff.Rates()
         import_rates.previous_day = prev_rates
         import_rates.current_day = today_rates
         import_rates.next_day = next_rates
-        export_rates = tariff.Rates()
-        data = tariff.calculate_tariff_data(config, day, import_rates, export_rates)
+
+        day_rates = import_rates.cover_day(day)
+        import_schedules = tariff.get_schedules(config["import_tariff_breaks"], None, config["import_tariff_pricing"], day_rates)
+        data = tariff.to_tariff_data(config, import_schedules, None)
         print(json.dumps(data))

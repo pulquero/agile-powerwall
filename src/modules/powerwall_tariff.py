@@ -18,7 +18,31 @@ CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 PRICE_KEY = "value_inc_vat"
 PRICE_CAP = 1.00
 
-DEFAULT_EXPORT_PRICING = ["fixed(0.0)"] * len(CHARGE_NAMES)
+
+def get_day_bounds(day_date):
+    day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
+    day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
+    return day_start, day_end
+
+
+def extend_from(rates, start_time):
+    first = rates[0]
+    while first["start"] > start_time:
+        new_first = first.copy()
+        new_first["start"] = first["start"] - SLOT_TIME_INCREMENT
+        new_first["end"] = first["start"]
+        rates.insert(0, new_first)
+        first = new_first
+
+
+def extend_to(rates, end_time):
+    last = rates[-1]
+    while last["end"] < end_time:
+        new_last = last.copy()
+        new_last["start"] = last["end"]
+        new_last["end"] = last["end"] + SLOT_TIME_INCREMENT
+        rates.append(new_last)
+        last = new_last
 
 
 class Rates:
@@ -72,6 +96,15 @@ class Rates:
         else:
             return []
 
+    def cover_day(self, day_date):
+        day_start, day_end = get_day_bounds(day_date)
+        day_rates = self.between(day_start, day_end)
+        if day_rates:
+            # pad rates to cover 24 hours
+            extend_from(day_rates, day_start)
+            extend_to(day_rates, day_end)
+        return day_rates
+
     def reset(self):
         self._previous_day_updated = False
         self._current_day_updated = False
@@ -79,18 +112,19 @@ class Rates:
 
 
 class Schedule:
-    def __init__(self, charge_name, lower_bound, upper_bound, pricing_func):
+    def __init__(self, charge_name, lower_bound, upper_bound, pricing_func, pricing_key):
         self.charge_name = charge_name
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.pricing_func = pricing_func
+        self.pricing_key = pricing_key
         self._periods = []
         self._value = None
         self._start = None
         self._end = None
 
-    def is_in(self, rate):
-        return (self.lower_bound is None or rate >= self.lower_bound) and (self.upper_bound is None or rate < self.upper_bound)
+    def is_in(self, cost):
+        return (self.lower_bound is None or cost >= self.lower_bound) and (self.upper_bound is None or cost < self.upper_bound)
 
     def add(self, rate):
         if self._start is None:
@@ -102,7 +136,7 @@ class Schedule:
             self._periods.append((self._start, self._end))
             self._start = rate["start"]
             self._end = rate["end"]
-        self.pricing_func.add(rate[PRICE_KEY])
+        self.pricing_func.add(rate[self.pricing_key])
 
     def get_periods(self):
         if self._start is not None:
@@ -216,26 +250,6 @@ def create_pricing(pricing_expr):
     return pricing_type(*func_args)
 
 
-def extend_from(rates, start_time):
-    first = rates[0]
-    while first["start"] > start_time:
-        new_first = first.copy()
-        new_first["start"] = first["start"] - SLOT_TIME_INCREMENT
-        new_first["end"] = first["start"]
-        rates.insert(0, new_first)
-        first = new_first
-
-
-def extend_to(rates, end_time):
-    last = rates[-1]
-    while last["end"] < end_time:
-        new_last = last.copy()
-        new_last["start"] = last["end"]
-        new_last["end"] = last["end"] + SLOT_TIME_INCREMENT
-        rates.append(new_last)
-        last = new_last
-
-
 def get_breaks(break_config, rates):
     if break_config == "jenks":
         bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(CHARGE_NAMES))
@@ -270,19 +284,9 @@ def populate_schedules(schedules, day_rates):
         schedule.add(rate)
 
 
-def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_config, day_date, rates):
-    day_start = dt.datetime.combine(day_date, dt.time.min).astimezone(dt.timezone.utc)
-    day_end = dt.datetime.combine(day_date + ONE_DAY_INCREMENT, dt.time.min).astimezone(dt.timezone.utc)
-
-    # filter down to the given day
-    day_rates = rates.between(day_start, day_end)
-
-    if len(day_rates) == 0:
+def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_config, day_rates, pricing_key=PRICE_KEY):
+    if not day_rates:
         return None
-
-    # pad rates to cover 24 hours
-    extend_from(day_rates, day_start)
-    extend_to(day_rates, day_end)
 
     plunge_pricing = False
     for rate in day_rates:
@@ -294,21 +298,15 @@ def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_co
         configured_breaks = plunge_pricing_breaks_config
     else:
         configured_breaks = breaks_config
-    if type(configured_breaks) == list and len(configured_breaks) != len(CHARGE_NAMES)-1:
-        raise ValueError(f"{len(CHARGE_NAMES)-1} breaks must be specified")
 
     breaks = get_breaks(configured_breaks, day_rates)
-
-    configured_pricing = tariff_pricing_config
-    if len(configured_pricing) != len(CHARGE_NAMES):
-        raise ValueError(f"{len(CHARGE_NAMES)} import_tariff_pricing functions must be specified")
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
         lower_bound = breaks[i-1] if i > 0 else None
         upper_bound = breaks[i] if i < len(breaks) else None
-        pricing_func = create_pricing(configured_pricing[i])
-        schedules.append(Schedule(charge_name, lower_bound, upper_bound, pricing_func))
+        pricing_func = create_pricing(tariff_pricing_config[i])
+        schedules.append(Schedule(charge_name, lower_bound, upper_bound, pricing_func, pricing_key))
 
     populate_schedules(schedules, day_rates)
 
@@ -338,26 +336,30 @@ def schedule_to_tariff(schedules):
             charge_periods.append(to_charge_period_json(0, 6, period))
         tou_periods[schedule.charge_name] = charge_periods
         price_info[schedule.charge_name] = schedule.get_value()
-    return tou_periods, price_info
+    seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
+                          "toMonth": 12, "tou_periods": tou_periods},
+               "Winter": {"tou_periods": {}}}
+    return seasons, price_info
 
 
 def to_tariff_data(config, import_schedules, export_schedules):
-    import_tou_periods, buy_price_info = schedule_to_tariff(import_schedules)
-    export_tou_periods, sell_price_info = schedule_to_tariff(export_schedules)
+    import_seasons, buy_price_info = schedule_to_tariff(import_schedules)
+    if export_schedules:
+        export_seasons, sell_price_info = schedule_to_tariff(export_schedules)
+    else:
+        export_seasons = import_seasons
+        sell_price_info = {charge_name: 0 for charge_name in CHARGE_NAMES}
 
     plan = config["tariff_name"]
     provider = config["tariff_provider"]
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
     daily_charges = [{"name": "Charge", "amount": 0}]
-    seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
-                          "toMonth": 12, "tou_periods": import_tou_periods},
-               "Winter": {"tou_periods": {}}}
     tariff_data = {
         "name": plan,
         "utility": provider,
         "daily_charges": daily_charges,
         "demand_charges": demand_changes,
-        "seasons": seasons,
+        "seasons": import_seasons,
         "energy_charges": {"ALL": {"ALL": 0},
                         "Summer": buy_price_info,
                         "Winter": {}},
@@ -365,18 +367,9 @@ def to_tariff_data(config, import_schedules, export_schedules):
                      "utility": provider,
                      "daily_charges": daily_charges,
                      "demand_charges": demand_changes,
-                     "seasons": seasons,
+                     "seasons": export_seasons,
                      "energy_charges": {"ALL": {"ALL": 0},
                                         "Summer": sell_price_info,
                                         "Winter": {}}}
     }
-    return tariff_data
-
-
-def calculate_tariff_data(config, day_date, import_rates, export_rates):
-    import_schedules, export_schedules = get_schedules(config, day_date, import_rates, export_rates)
-    if import_schedules is None:
-        return
-
-    tariff_data = to_tariff_data(config, import_schedules, export_schedules)
     return tariff_data
