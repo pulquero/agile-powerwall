@@ -59,6 +59,10 @@ So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.1
 
 `export_tariff_pricing`: determines how to calculate the price of each export pricing level from the actual prices assigned to a level.
 
+`import_standing_charge`: sensor name or value.
+
+`export_standing_charge`: sensor name or value.
+
 
 ### Computed thresholds
 

@@ -108,6 +108,13 @@ def get_pricing(config_key, default_value=None, required=True):
     return pricing
 
 
+def get_sensor_value(config_key, default_value):
+    value = pyscript.app_config.get(config_key, default_value)
+    if type(value) == str:
+        value = float(state.get(value))
+    return value
+
+
 def _update_powerwall_tariff():
     config = pyscript.app_config
 
@@ -149,7 +156,9 @@ def _update_powerwall_tariff():
     else:
         export_schedules = None
 
-    tariff_data = tariff.to_tariff_data(config, import_schedules, export_schedules)
+    import_standing_charge = get_sensor_value("import_standing_charge", 0)
+    export_standing_charge = get_sensor_value("export_standing_charge", 0)
+    tariff_data = tariff.to_tariff_data(config, import_standing_charge, export_standing_charge, import_schedules, export_schedules)
 
     debug(f"Tariff data:\n{tariff_data}")
 
