@@ -45,6 +45,6 @@ class TestTariff(unittest.TestCase):
         import_rates.next_day = next_rates
 
         day_rates = import_rates.cover_day(day)
-        import_schedules = get_schedules(config["import_tariff_breaks"], None, config["import_tariff_pricing"], day_rates)
-        data = to_tariff_data(config, import_schedules, None)
+        import_schedules = tariff.get_schedules(config["import_tariff_breaks"], None, config["import_tariff_pricing"], day_rates)
+        data = tariff.to_tariff_data(config, import_schedules, None)
         print(json.dumps(data))
