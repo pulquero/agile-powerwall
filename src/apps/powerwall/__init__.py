@@ -90,8 +90,8 @@ def update_powerwall_tariff():
     EXPORT_RATES.reset()
 
 
-def get_breaks(config_key, required=True):
-    breaks = pyscript.app_config.get(config_key)
+def get_breaks(config_key, default_value=None, required=True):
+    breaks = pyscript.app_config.get(config_key, default_value)
     if breaks is None and required:
         raise ValueError(f"Missing breaks config for {config_key}")
     if breaks is not None and type(breaks) == list and len(breaks) != len(tariff.CHARGE_NAMES)-1:
@@ -111,19 +111,43 @@ def get_pricing(config_key, default_value=None, required=True):
 def _update_powerwall_tariff():
     config = pyscript.app_config
 
-    import_breaks = get_breaks("tariff_breaks")
+    today = dt.date.today()
+
+    # filter down to the given day
+    import_rates = IMPORT_RATES.cover_day(today)
+    export_rates = EXPORT_RATES.cover_day(today)
+
+    import_breaks = get_breaks("import_tariff_breaks", required=False)
+    # backwards compatibility
+    if import_breaks is None:
+        import_breaks = get_breaks("tariff_breaks")
     import_plunge_pricing_breaks = get_breaks("plunge_pricing_tariff_breaks", required=False)
     import_pricing = get_pricing("import_tariff_pricing", required=False)
     # backwards compatibility
     if import_pricing is None:
         import_pricing = get_pricing("tariff_pricing")
 
-    import_schedules = tariff.get_schedules(import_breaks, import_plunge_pricing_breaks, import_pricing, dt.date.today(), IMPORT_RATES)
+    import_schedules = tariff.get_schedules(import_breaks, import_plunge_pricing_breaks, import_pricing, import_rates)
     if import_schedules is None:
         return
 
-    export_pricing = get_pricing("export_tariff_pricing", tariff.DEFAULT_EXPORT_PRICING)
-    export_schedules = tariff.get_schedules(import_breaks, None, export_pricing, dt.date.today(), EXPORT_RATES)
+    if export_rates:
+        export_breaks = get_breaks("export_tariff_breaks", required=False)
+        export_pricing = get_pricing("export_tariff_pricing")
+        if export_breaks:
+            pricing_key = tariff.PRICE_KEY
+            _export_rates = export_rates
+        else:
+            # backwards compatibility
+            export_breaks = import_breaks
+            pricing_key = "export_price"
+            _export_rates = []
+            for ir, er in zip(import_rates, export_rates):
+                r = {**ir, pricing_key: er[tariff.PRICE_KEY]}
+                _export_rates.append(r)
+        export_schedules = tariff.get_schedules(export_breaks, None, export_pricing, _export_rates, pricing_key=pricing_key)
+    else:
+        export_schedules = None
 
     tariff_data = tariff.to_tariff_data(config, import_schedules, export_schedules)
 
@@ -136,8 +160,20 @@ def _update_powerwall_tariff():
     )
 
     debug("Powerwall updated")
-    breaks = [s.upper_bound for s in import_schedules if s.upper_bound is not None]
-    set_status_message(f"Tariff data updated at {dt.datetime.now()} (breaks: {breaks})")
+    status_msg = f"Tariff data updated at {dt.datetime.now()}"
+    if import_schedules or export_schedules:
+        status_msg += "("
+        sep = ""
+        if import_schedules:
+            import_breaks = [s.upper_bound for s in import_schedules if s.upper_bound is not None]
+            status_msg += f"{sep}import breaks: {import_breaks}"
+            sep = ", "
+        if export_schedules:
+            export_breaks = [s.upper_bound for s in export_schedules if s.upper_bound is not None]
+            status_msg += f"{sep}export breaks: {export_breaks}"
+            sep = ", "
+        status_msg += ")"
+    set_status_message(status_msg)
 
 
 @service("powerwall.refresh_tariff_data")
