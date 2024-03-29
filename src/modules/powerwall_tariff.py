@@ -120,10 +120,9 @@ class Rates:
 
 
 class Schedule:
-    def __init__(self, charge_name, lower_bound, upper_bound, pricing_func, pricing_key):
+    def __init__(self, charge_name, assigner_func, pricing_func, pricing_key):
         self.charge_name = charge_name
-        self.lower_bound = lower_bound
-        self.upper_bound = upper_bound
+        self.assigner_func = assigner_func
         self.pricing_func = pricing_func
         self.pricing_key = pricing_key
         self._periods = []
@@ -131,8 +130,8 @@ class Schedule:
         self._start = None
         self._end = None
 
-    def is_in(self, cost):
-        return (self.lower_bound is None or cost >= self.lower_bound) and (self.upper_bound is None or cost < self.upper_bound)
+    def is_in(self, rate):
+        return self.assigner_func.is_in(rate)
 
     def add(self, rate):
         if self._start is None:
@@ -161,26 +160,20 @@ class Schedule:
 
 class WeekSchedules:
     def __init__(self):
-        self.midweek_import = None
-        self.midweek_export = None
-        self.weekend_import = None
-        self.weekend_export = None
+        self.import_schedules = [None] * 7
+        self.export_schedules = [None] * 7
 
-    def update(self, day_date, import_schedules, export_schedules):
-        weekday = day_date.weekday()
-        if is_midweek(weekday):
-            self.midweek_import = import_schedules
-            self.midweek_export = export_schedules
-        else:
-            self.weekend_import = import_schedules
-            self.weekend_export = export_schedules
+    def update(self, weekday, import_schedules, export_schedules):
+        self.import_schedules[weekday] = import_schedules
+        self.export_schedules[weekday] = export_schedules
 
-    def get_schedules(self, day_date):
-        weekday = day_date.weekday()
-        if is_midweek(weekday):
-            return self.midweek_import, self.midweek_export
-        else:
-            return self.weekend_import, self.weekend_export
+    def get_schedules(self, weekday, export=False):
+        return self.export_schedules[weekday] if export else self.import_schedules[weekday]
+#
+    def reset(self):
+        for i in range(7):
+            self.import_schedules[i] = None
+            self.export_schedules[i] = None
 
 
 def lowest_rates(rates, hrs):
@@ -205,7 +198,17 @@ RATE_FUNCS = {
 }
 
 
-class AveragePricing():
+class PriceBandAssigner:
+    def __init__(self, lower_bound, upper_bound):
+        self.lower_bound = lower_bound
+        self.upper_bound = upper_bound
+
+    def is_in(self, rate):
+        cost = rate[PRICE_KEY]
+        return (self.lower_bound is None or cost >= self.lower_bound) and (self.upper_bound is None or cost < self.upper_bound)
+
+
+class AveragePricing:
     def __init__(self):
         self.sum = 0
         self.count = 0
@@ -224,7 +227,7 @@ class AveragePricing():
             return 0.0
 
 
-class MinimumPricing():
+class MinimumPricing:
     def __init__(self):
         self.min = PRICE_CAP
 
@@ -239,7 +242,7 @@ class MinimumPricing():
         return v
 
 
-class MaximumPricing():
+class MaximumPricing:
     def __init__(self):
         self.max = 0
 
@@ -305,12 +308,21 @@ def get_breaks(break_config, rates):
     return breaks
 
 
+def get_tariff_assigners(break_config, rates):
+    breaks = get_breaks(break_config, rates)
+    funcs = []
+    for i in range(len(breaks)+1):
+        lower_bound = breaks[i-1] if i > 0 else None
+        upper_bound = breaks[i] if i < len(breaks) else None
+        funcs.append(PriceBandAssigner(lower_bound, upper_bound))
+    return funcs
+
+
 def populate_schedules(schedules, day_rates):
     for rate in day_rates:
-        cost = rate[PRICE_KEY]
         schedule = None
         for s in schedules:
-            if s.is_in(cost):
+            if s.is_in(rate):
                 schedule = s
                 break
         schedule.add(rate)
@@ -331,14 +343,12 @@ def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_co
     else:
         configured_breaks = breaks_config
 
-    breaks = get_breaks(configured_breaks, day_rates)
+    assigner_funcs = get_tariff_assigners(configured_breaks, day_rates)
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
-        lower_bound = breaks[i-1] if i > 0 else None
-        upper_bound = breaks[i] if i < len(breaks) else None
         pricing_func = create_pricing(tariff_pricing_config[i])
-        schedules.append(Schedule(charge_name, lower_bound, upper_bound, pricing_func, pricing_key))
+        schedules.append(Schedule(charge_name, assigner_funcs[i], pricing_func, pricing_key))
 
     populate_schedules(schedules, day_rates)
 
@@ -365,12 +375,24 @@ def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_w
             charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period))
 
 
-def schedules_to_tariff(midweek_schedules, weekend_schedules):
+def schedules_to_tariff(week_schedules, export=False):
     tou_periods = {charge_name: [] for charge_name in CHARGE_NAMES}
+
+    midweek_schedules = None
+    for i in range(4, -1, -1):
+        midweek_schedules = week_schedules.get_schedules(i, export)
+        if midweek_schedules:
+            break
+
+    weekend_schedules = None
+    for i in range(6, 4, -1):
+        weekend_schedules = week_schedules.get_schedules(i, export)
+        if weekend_schedules:
+            break
 
     if midweek_schedules and weekend_schedules:
         populate_tou_periods(tou_periods, midweek_schedules, 0, 4)
-        populate_tou_periods(tou_periods, midweek_schedules, 5, 6)
+        populate_tou_periods(tou_periods, weekend_schedules, 5, 6)
     elif midweek_schedules:
         populate_tou_periods(tou_periods, midweek_schedules, 0, 6)
     elif weekend_schedules:
@@ -392,12 +414,14 @@ def get_price_info(schedules):
 
 
 def to_tariff_data(config, import_standing_charge, export_standing_charge, week_schedules, day_date):
-    current_import_schedules, current_export_schedules = week_schedules.get_schedules(day_date)
-    import_seasons = schedules_to_tariff(week_schedules.midweek_import, week_schedules.weekend_import)
+    weekday = day_date.weekday()
+    current_import_schedules = week_schedules.get_schedules(weekday)
+    current_export_schedules = week_schedules.get_schedules(weekday, export=True)
+    import_seasons = schedules_to_tariff(week_schedules)
     buy_price_info = get_price_info(current_import_schedules);
 
-    if week_schedules.midweek_export or week_schedules.weekend_export:
-        export_seasons = schedules_to_tariff(week_schedules.midweek_export, week_schedules.weekend_export)
+    if current_export_schedules:
+        export_seasons = schedules_to_tariff(week_schedules, export=True)
         sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons

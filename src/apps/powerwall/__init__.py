@@ -90,6 +90,7 @@ def update_powerwall_tariff():
 
     IMPORT_RATES.reset()
     EXPORT_RATES.reset()
+    WEEK_SCHEDULES.reset()
 
 
 def get_breaks(config_key, default_value=None, required=True):
@@ -156,7 +157,8 @@ def _update_schedules_for_day(day_date):
     else:
         export_schedules = None
 
-    WEEK_SCHEDULES.update(day_date, import_schedules, export_schedules)
+    weekday = day_date.weekday()
+    WEEK_SCHEDULES.update(weekday, import_schedules, export_schedules)
 
     return import_schedules, export_schedules
 
@@ -171,11 +173,7 @@ def _update_powerwall_tariff():
         return
 
     tomorrow = today + tariff.ONE_DAY_INCREMENT
-    tomorrow_weekday = tomorrow.weekday()
-    # if tomorrow is the start of a new phase of the week
-    if tomorrow_weekday == 0 or tomorrow_weekday == 5:
-        debug("Updating schedules for tomorrow")
-        _update_schedules_for_day(tomorrow)
+    _update_schedules_for_day(tomorrow)
 
     import_standing_charge = get_sensor_value("import_standing_charge", 0)
     export_standing_charge = get_sensor_value("export_standing_charge", 0)
@@ -192,15 +190,27 @@ def _update_powerwall_tariff():
     debug("Powerwall updated")
     status_msg = f"Tariff data updated at {dt.datetime.now()}"
     if import_schedules or export_schedules:
-        status_msg += "("
+        status_msg += " ("
         sep = ""
         if import_schedules:
-            import_breaks = [s.upper_bound for s in import_schedules if s.upper_bound is not None]
-            status_msg += f"{sep}import breaks: {import_breaks}"
+            status_msg += f"{sep}import: "
+            for i, schedule in enumerate(import_schedules):
+                status_msg += f"{schedule.get_value():.2f}"
+                if i < len(import_schedules) - 1:
+                    if hasattr(schedule.assigner_func, "upper_bound"):
+                        status_msg += f" |{schedule.assigner_func.upper_bound:.2f}| "
+                    else:
+                        status_msg += "|"
             sep = ", "
         if export_schedules:
-            export_breaks = [s.upper_bound for s in export_schedules if s.upper_bound is not None]
-            status_msg += f"{sep}export breaks: {export_breaks}"
+            status_msg += f"{sep}export: "
+            for i, schedule in enumerate(export_schedules):
+                status_msg += f"{schedule.get_value():.2f}"
+                if i < len(export_schedules) - 1:
+                    if hasattr(schedule.assigner_func, "upper_bound"):
+                        status_msg += f" |{schedule.assigner_func.upper_bound:.2f}| "
+                    else:
+                        status_msg += "|"
             sep = ", "
         status_msg += ")"
     set_status_message(status_msg)
