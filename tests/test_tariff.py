@@ -33,6 +33,66 @@ class TestTariff(unittest.TestCase):
         ]
         self.assertEqual(expected, rates)
 
+    def test_multiday_schedule_type_start_of_week(self):
+        schedule1 = AllDaySchedule(datetime.date(2024, 3, 4))
+        schedule2 = AllDaySchedule(datetime.date(2024, 3, 5))
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(0, [schedule1], None)
+        week_schedules.update(1, [schedule2], None)
+        data = tariff.schedules_to_tariff(week_schedules, "multiday", None)
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["fromDayOfWeek"])
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["toDayOfWeek"])
+        self.assertEqual(1, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["fromDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
+
+    def test_multiday_schedule_type_midweek(self):
+        schedule1 = AllDaySchedule(datetime.date(2024, 3, 7))
+        schedule2 = AllDaySchedule(datetime.date(2024, 3, 8))
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(3, [schedule1], None)
+        week_schedules.update(4, [schedule2], None)
+        data = tariff.schedules_to_tariff(week_schedules, "multiday", None)
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["fromDayOfWeek"])
+        self.assertEqual(3, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["toDayOfWeek"])
+        self.assertEqual(4, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["fromDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
+
+    def test_multiday_schedule_type_end_of_week(self):
+        schedule1 = AllDaySchedule(datetime.date(2024, 3, 9))
+        schedule2 = AllDaySchedule(datetime.date(2024, 3, 10))
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(5, [schedule1], None)
+        week_schedules.update(6, [schedule2], None)
+        data = tariff.schedules_to_tariff(week_schedules, "multiday", None)
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["fromDayOfWeek"])
+        self.assertEqual(5, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["toDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["fromDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
+
+    def test_multiday_schedule_type_rollover(self):
+        schedule1 = AllDaySchedule(datetime.date(2024, 3, 10))
+        schedule2 = AllDaySchedule(datetime.date(2024, 3, 11))
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(6, [schedule1], None)
+        week_schedules.update(0, [schedule2], None)
+        data = tariff.schedules_to_tariff(week_schedules, "multiday", None)
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["fromDayOfWeek"])
+        self.assertEqual(5, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["toDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["fromDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
+
+    def test_multiday_schedule_type_roll_disjoint(self):
+        schedule1 = AllDaySchedule(datetime.date(2024, 3, 7))
+        schedule2 = AllDaySchedule(datetime.date(2024, 3, 9))
+        week_schedules = tariff.WeekSchedules()
+        week_schedules.update(3, [schedule1], None)
+        week_schedules.update(5, [schedule2], None)
+        data = tariff.schedules_to_tariff(week_schedules, "multiday", None)
+        self.assertEqual(0, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["fromDayOfWeek"])
+        self.assertEqual(4, data["Summer"]["tou_periods"]["OFF_PEAK"][0]["toDayOfWeek"])
+        self.assertEqual(5, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["fromDayOfWeek"])
+        self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
+
     def test_calculate_tariff(self):
         config = {"tariff_name": "Test",
                   "tariff_provider": "Test",
@@ -49,4 +109,17 @@ class TestTariff(unittest.TestCase):
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, None)
         data = tariff.to_tariff_data(config, 0, 0, week_schedules, day)
-        print(json.dumps(data))
+        expected = """
+{"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}], "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}, "seasons": {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}}, "Winter": {"tou_periods": {}}}, "energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0.06697833333333333, "OFF_PEAK": 0.135209375, "PARTIAL_PEAK": 0.29274, "ON_PEAK": 0.304605}, "Winter": {}}, "sell_tariff": {"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}], "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}, "seasons": {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}}, "Winter": {"tou_periods": {}}}, "energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0, "OFF_PEAK": 0, "PARTIAL_PEAK": 0, "ON_PEAK": 0}, "Winter": {}}}}
+        """
+        self.assertEqual(json.loads(expected), data)
+        self.assertEqual(expected.strip(), json.dumps(data))
+
+
+class AllDaySchedule:
+    def __init__(self, day_date):
+        self.charge_name = "OFF_PEAK"
+        self.periods = [(datetime.datetime.combine(day_date, datetime.time.min), datetime.datetime.combine(day_date + datetime.timedelta(days=1), datetime.time.min))]
+
+    def get_periods(self):
+        return self.periods

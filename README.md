@@ -63,6 +63,14 @@ So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.1
 
 `export_standing_charge`: sensor name or value.
 
+`schedule_type`: one of:
+
+`week` - current day rates are used for the week (default).
+
+`weekend` - same as `week`, but when possible, current day rates are used for midweek/weekend and next day rates are used for weekend/midweek.
+
+`multiday` - current day rates are used to span one part of the week, and next day rates are used to span the rest (not compatible with in-app editor).
+
 
 ### Computed thresholds
 
