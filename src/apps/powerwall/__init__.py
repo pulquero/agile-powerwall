@@ -20,6 +20,8 @@ EXPORT_RATES = tariff.Rates()
 
 WEEK_SCHEDULES = tariff.WeekSchedules()
 
+tariff.RATE_FUNCS.set_helpers(state.get, state.getattr)
+
 
 def debug(msg):
     log.debug(msg)

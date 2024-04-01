@@ -176,26 +176,44 @@ class WeekSchedules:
             self.export_schedules[i] = None
 
 
-def lowest_rates(rates, hrs):
-    prices = [r[PRICE_KEY] for r in rates]
-    prices.sort()
-    n = round(2.0*float(hrs))
-    limit = prices[n-1] if n <= len(prices) else prices[-1]
-    return limit + EXCLUSIVE_OFFSET
+class RateFunctions:
+    def __init__(self):
+        self.funcs = {
+            "lowest": self.lowest_rates,
+            "highest": self.highest_rates,
+            "states": self.state_value,
+            "state_attr": self.state_attribute
+        }
+
+    def set_helpers(self, state_getter, state_attr_getter):
+        self.get_state = state_getter
+        self.get_state_attr = state_attr_getter
+
+    def apply(self, name, rates, *args):
+        return self.funcs[name](rates, *args)
+
+    def lowest_rates(self, rates, hrs):
+        prices = [r[PRICE_KEY] for r in rates]
+        prices.sort()
+        n = round(2.0*float(hrs))
+        limit = prices[n-1] if n <= len(prices) else prices[-1]
+        return limit + EXCLUSIVE_OFFSET
+
+    def highest_rates(self, rates, hrs):
+        prices = [r[PRICE_KEY] for r in rates]
+        prices.sort(reverse=True)
+        n = round(2.0*float(hrs))
+        limit = prices[n-1] if n <= len(prices) else prices[-1]
+        return limit
+
+    def state_value(self, rates, sensor_name):
+        return float(self.get_state(sensor_name))
+    
+    def state_attribute(self, rates, sensor_name, attr_name):
+        return float(self.get_state_attr(sensor_name)[attr_name])
 
 
-def highest_rates(rates, hrs):
-    prices = [r[PRICE_KEY] for r in rates]
-    prices.sort(reverse=True)
-    n = round(2.0*float(hrs))
-    limit = prices[n-1] if n <= len(prices) else prices[-1]
-    return limit
-
-
-RATE_FUNCS = {
-    "lowest": lowest_rates,
-    "highest": highest_rates
-}
+RATE_FUNCS = RateFunctions()
 
 
 class PriceBandAssigner:
@@ -277,7 +295,7 @@ def create_pricing(pricing_expr):
     if '(' in pricing_expr and pricing_expr[-1] == ')':
         sep = pricing_expr.index('(')
         func_name = pricing_expr[:sep]
-        func_args = pricing_expr[sep+1:-1].split(',')
+        func_args = [arg.strip() for arg in pricing_expr[sep+1:-1].split(',')]
     else:
         func_name = pricing_expr
         func_args = []
@@ -297,8 +315,8 @@ def get_breaks(break_config, rates):
             elif isinstance(br, str) and '(' in br and br[-1] == ')':
                 sep = br.index('(')
                 func_name = br[:sep]
-                func_args = br[sep+1:-1].split(',')
-                v = RATE_FUNCS[func_name](rates, *func_args)
+                func_args = [arg.strip() for arg in br[sep+1:-1].split(',')]
+                v = RATE_FUNCS.apply(func_name, rates, *func_args)
             else:
                 raise ValueError(f"Invalid threshold: {br}")
             breaks.append(v)

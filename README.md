@@ -80,6 +80,10 @@ As well as numeric thresholds, the following computed thresholds are also suppor
 
 `highest(num_hours)`: sets the threshold at the price to exclude the most expensive `num_hours` hours.
 
+`states(sensor_name)`: uses the value of the specified sensor as a threshold.
+
+`state_attr(sensor_name, attr_name)`: uses the value of the specified state attribute as a threshold.
+
 e.g.:
 
 	            import_tariff_breaks: ["lowest(2)", 0.20, 0.30]
