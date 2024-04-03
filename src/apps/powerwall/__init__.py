@@ -92,7 +92,9 @@ def update_powerwall_tariff():
 
     IMPORT_RATES.reset()
     EXPORT_RATES.reset()
-    WEEK_SCHEDULES.reset()
+
+    if not pyscript.app_config.get("maintain_history", False):
+        WEEK_SCHEDULES.reset()
 
 
 def get_breaks(config_key, default_value=None, required=True):

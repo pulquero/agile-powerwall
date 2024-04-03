@@ -71,6 +71,8 @@ So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.1
 
 `multiday` - current day rates are used to span one part of the week, and next day rates are used to span the rest (not compatible with in-app editor).
 
+`maintain_history`: keep previous schedules, don't calculate schedule afresh (default: false).
+
 
 ### Computed thresholds
 
