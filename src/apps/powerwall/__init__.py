@@ -199,20 +199,20 @@ def _update_powerwall_tariff():
         if import_schedules:
             status_msg += f"{sep}import: "
             for i, schedule in enumerate(import_schedules):
-                status_msg += f"{schedule.get_value():.2f}"
+                status_msg += f"{schedule.get_value():.3f}"
                 if i < len(import_schedules) - 1:
                     if hasattr(schedule.assigner_func, "upper_bound"):
-                        status_msg += f" |{schedule.assigner_func.upper_bound:.2f}| "
+                        status_msg += f" |{schedule.assigner_func.upper_bound:.3f}| "
                     else:
                         status_msg += "|"
             sep = ", "
         if export_schedules:
             status_msg += f"{sep}export: "
             for i, schedule in enumerate(export_schedules):
-                status_msg += f"{schedule.get_value():.2f}"
+                status_msg += f"{schedule.get_value():.3f}"
                 if i < len(export_schedules) - 1:
                     if hasattr(schedule.assigner_func, "upper_bound"):
-                        status_msg += f" |{schedule.assigner_func.upper_bound:.2f}| "
+                        status_msg += f" |{schedule.assigner_func.upper_bound:.3f}| "
                     else:
                         status_msg += "|"
             sep = ", "
