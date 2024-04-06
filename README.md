@@ -30,6 +30,7 @@ using
 	            import_tariff_breaks: [0.10, 0.20, 0.30]
 	            import_tariff_pricing: ["average", "average", "maximum", "maximum"]
 	            plunge_pricing_tariff_breaks: [0.0, 0.10, 0.30]
+	            plunge_pricing_tariff_pricing: ["average", "maximum", "maximum", "maximum"]
 
 5.   Optionally, create an `input_text` helper called `powerwall_tariff_update_status` if you want to see status messages.
 
@@ -56,6 +57,8 @@ So, by default, anything below £0.10 is mapped to Super Off-Peak, between £0.1
 `plunge_pricing_tariff_breaks`: similar to above, but applied if there are any plunge (negative) prices.
 
 `import_tariff_pricing`: determines how to calculate the price of each import pricing level from the actual prices assigned to a level.
+
+`plunge_pricing_tariff_pricing`: similar to above, but applied if there are any plunge (negative) prices.
 
 `export_tariff_pricing`: determines how to calculate the price of each export pricing level from the actual prices assigned to a level.
 

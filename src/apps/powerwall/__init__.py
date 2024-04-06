@@ -133,13 +133,14 @@ def _update_schedules_for_day(day_date):
     # backwards compatibility
     if import_breaks is None:
         import_breaks = get_breaks("tariff_breaks")
-    import_plunge_pricing_breaks = get_breaks("plunge_pricing_tariff_breaks", required=False)
+    plunge_pricing_breaks = get_breaks("plunge_pricing_tariff_breaks", required=False)
     import_pricing = get_pricing("import_tariff_pricing", required=False)
     # backwards compatibility
     if import_pricing is None:
         import_pricing = get_pricing("tariff_pricing")
+    plunge_pricing_pricing = get_pricing("plunge_pricing_tariff_pricing", required=False)
 
-    import_schedules = tariff.get_schedules(import_breaks, import_plunge_pricing_breaks, import_pricing, import_rates)
+    import_schedules = tariff.get_schedules(import_breaks, import_pricing, plunge_pricing_breaks, plunge_pricing_pricing, import_rates)
     if import_schedules is None:
         return None, None
 

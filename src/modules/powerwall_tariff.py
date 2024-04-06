@@ -346,7 +346,7 @@ def populate_schedules(schedules, day_rates):
         schedule.add(rate)
 
 
-def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_config, day_rates, pricing_key=PRICE_KEY):
+def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, day_rates, pricing_key=PRICE_KEY):
     if not day_rates:
         return None
 
@@ -361,11 +361,16 @@ def get_schedules(breaks_config, plunge_pricing_breaks_config, tariff_pricing_co
     else:
         configured_breaks = breaks_config
 
+    if plunge_pricing and plunge_pricing_tariff_pricing_config:
+        configured_pricing = plunge_pricing_tariff_pricing_config
+    else:
+        configured_pricing = tariff_pricing_config
+
     assigner_funcs = get_tariff_assigners(configured_breaks, day_rates)
 
     schedules = []
     for i, charge_name in enumerate(CHARGE_NAMES):
-        pricing_func = create_pricing(tariff_pricing_config[i])
+        pricing_func = create_pricing(configured_pricing[i])
         schedules.append(Schedule(charge_name, assigner_funcs[i], pricing_func, pricing_key))
 
     populate_schedules(schedules, day_rates)

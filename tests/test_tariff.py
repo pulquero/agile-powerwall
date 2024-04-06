@@ -105,7 +105,7 @@ class TestTariff(unittest.TestCase):
         import_rates.next_day = next_rates
 
         day_rates = import_rates.cover_day(day)
-        import_schedules = tariff.get_schedules(config["import_tariff_breaks"], None, config["import_tariff_pricing"], day_rates)
+        import_schedules = tariff.get_schedules(config["import_tariff_breaks"], config["import_tariff_pricing"], None, None, day_rates)
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, None)
         data = tariff.to_tariff_data(config, 0, 0, week_schedules, day)
