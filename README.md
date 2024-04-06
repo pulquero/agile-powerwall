@@ -98,6 +98,8 @@ e.g.:
 
 `average`: the average of all the prices. If the average is negative, it is set to zero.
 
+`nonNegativeAverage`: the average of all the prices. If a price is negative, it is taken to be zero.
+
 `minimum`: the minimum of all the prices. If the minimum is negative, it is set to zero.
 
 `maximum`: the maximum of all the prices.

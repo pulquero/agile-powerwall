@@ -158,7 +158,7 @@ def _update_schedules_for_day(day_date):
             for ir, er in zip(import_rates, export_rates):
                 r = {**ir, pricing_key: er[tariff.PRICE_KEY]}
                 _export_rates.append(r)
-        export_schedules = tariff.get_schedules(export_breaks, None, export_pricing, _export_rates, pricing_key=pricing_key)
+        export_schedules = tariff.get_schedules(export_breaks, export_pricing, None, None, _export_rates, pricing_key=pricing_key)
     else:
         export_schedules = None
 

@@ -245,6 +245,25 @@ class AveragePricing:
             return 0.0
 
 
+class NonNegativeAveragePricing:
+    def __init__(self):
+        self.sum = 0
+        self.count = 0
+
+    def add(self, price):
+        if price < 0.0:
+            price = 0.0
+        self.sum += price
+        self.count += 1
+
+    def get_value(self):
+        if self.count > 0:
+            v = self.sum/self.count
+            return v
+        else:
+            return 0.0
+
+
 class MinimumPricing:
     def __init__(self):
         self.min = PRICE_CAP
@@ -285,6 +304,7 @@ class FixedPricing:
 
 PRICING_FUNCS = {
     "average": AveragePricing,
+    "nonNegativeAverage": NonNegativeAveragePricing,
     "minimum": MinimumPricing,
     "maximum": MaximumPricing,
     "fixed": FixedPricing,
