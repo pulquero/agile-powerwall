@@ -10,7 +10,8 @@ import teslapy
 
 @pyscript_executor
 def set_powerwall_tariff(email, refresh_token, tariff_data):
-    with teslapy.Tesla(email) as tesla:
+    retry = teslapy.Retry(total=5, allowed_methods=None, backoff_factor=1, status_forcelist=(503, 504))
+    with teslapy.Tesla(email, retry=retry) as tesla:
         tesla.refresh_token(refresh_token=refresh_token)
         pw = tesla.battery_list()[0]
         pw.set_tariff(tariff_data)
@@ -26,7 +27,8 @@ def get_powerwall_tariff(email, refresh_token):
 
 @pyscript_executor
 def set_powerwall_settings(email, refresh_token, reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
-    with teslapy.Tesla(email) as tesla:
+    retry = teslapy.Retry(total=5, allowed_methods=None, backoff_factor=1, status_forcelist=(503, 504))
+    with teslapy.Tesla(email, retry=retry) as tesla:
         tesla.refresh_token(refresh_token=refresh_token)
         pw = tesla.battery_list()[0]
         if reserve_percentage is not None:
