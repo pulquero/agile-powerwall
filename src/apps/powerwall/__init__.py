@@ -1,6 +1,7 @@
 import datetime as dt
 import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
+from jsondiff import diff
 
 
 def get_mpan(config_key, required):
@@ -19,6 +20,8 @@ IMPORT_RATES = tariff.Rates()
 EXPORT_RATES = tariff.Rates()
 
 WEEK_SCHEDULES = tariff.WeekSchedules()
+
+TARIFF_CACHE = (0, None)
 
 tariff.RATE_FUNCS.set_helpers(state.get, state.getattr)
 
@@ -168,6 +171,21 @@ def _update_schedules_for_day(day_date):
     return import_schedules, export_schedules
 
 
+def _get_tariff_data():
+    global TARIFF_CACHE
+    config = pyscript.app_config
+
+    cache_ts, cache_data = TARIFF_CACHE
+    ts = dt.datetime.now(dt.timezone.utc).timestamp()
+    if ts > cache_ts + 10:
+        cache_data = api_wrapper.get_powerwall_tariff(
+            email=config["email"],
+            refresh_token=config["refresh_token"],
+        )
+        TARIFF_CACHE = (ts, cache_data)
+    return cache_data
+
+
 def _update_powerwall_tariff():
     config = pyscript.app_config
 
@@ -186,14 +204,20 @@ def _update_powerwall_tariff():
 
     debug(f"Tariff data:\n{tariff_data}")
 
-    api_wrapper.set_powerwall_tariff(
-        email=config["email"],
-        refresh_token=config["refresh_token"],
-        tariff_data=tariff_data
-    )
+    current_tariff_data = _get_tariff_data()
+    tariff_change = diff(tariff_data, current_tariff_data)
+    debug(f"Tariff diff:\n{tariff_change}")
+    if tariff_change:
+        api_wrapper.set_powerwall_tariff(
+            email=config["email"],
+            refresh_token=config["refresh_token"],
+            tariff_data=tariff_data
+        )
+        debug("Powerwall updated")
+        status_msg = f"Tariff data updated at {dt.datetime.now()}"
+    else:
+        status_msg = f"Tariff data checked at {dt.datetime.now()}"
 
-    debug("Powerwall updated")
-    status_msg = f"Tariff data updated at {dt.datetime.now()}"
     if import_schedules or export_schedules:
         status_msg += " ("
         sep = ""

@@ -1,6 +1,7 @@
 import datetime
 import itertools
 import json
+from jsondiff import diff
 import unittest
 
 import sys
@@ -110,10 +111,21 @@ class TestTariff(unittest.TestCase):
         week_schedules.update(day.weekday(), import_schedules, None)
         data = tariff.to_tariff_data(config, 0, 0, week_schedules, day)
         expected = """
-{"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}], "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}, "seasons": {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}}, "Winter": {"tou_periods": {}}}, "energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0.06697833333333333, "OFF_PEAK": 0.135209375, "PARTIAL_PEAK": 0.29274, "ON_PEAK": 0.304605}, "Winter": {}}, "sell_tariff": {"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}], "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}, "seasons": {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}}, "Winter": {"tou_periods": {}}}, "energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0, "OFF_PEAK": 0, "PARTIAL_PEAK": 0, "ON_PEAK": 0}, "Winter": {}}}}
+{"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
+"demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}},
+"seasons": {
+    "Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}},
+    "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0, "toMonth": 0, "tou_periods": {}}},
+"energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0.06697833333333333, "OFF_PEAK": 0.135209375, "PARTIAL_PEAK": 0.29274, "ON_PEAK": 0.304605}, "Winter": {}},
+"sell_tariff": {"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
+"demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}},
+"seasons": {
+    "Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}},
+    "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0, "toMonth": 0, "tou_periods": {}}},
+"energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0, "OFF_PEAK": 0, "PARTIAL_PEAK": 0, "ON_PEAK": 0}, "Winter": {}}
+}}
         """
-        self.assertEqual(json.loads(expected), data)
-        self.assertEqual(expected.strip(), json.dumps(data))
+        self.assertFalse(diff(json.loads(expected), data))
 
 
 class AllDaySchedule:

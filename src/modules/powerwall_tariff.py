@@ -468,7 +468,8 @@ def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
 
     seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
                           "toMonth": 12, "tou_periods": tou_periods},
-               "Winter": {"tou_periods": {}}}
+               "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0,
+                          "toMonth": 0, "tou_periods": {}}}
     return seasons
 
 
