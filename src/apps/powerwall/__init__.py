@@ -1,4 +1,5 @@
 import datetime as dt
+import re
 import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
 from jsondiff import diff
@@ -40,29 +41,29 @@ def get_rates(mpan):
 
 
 @event_trigger("octopus_energy_electricity_previous_day_rates")
-def refresh_previous_day_rates(mpan, rates, **kwargs):
-    debug(f"Previous day rates for mpan {mpan}:\n{rates}")
+def refresh_previous_day_rates(mpan, tariff_code, rates, **kwargs):
+    debug(f"Previous day rates for mpan {mpan} ({tariff_code}):\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.update_previous_day(rates)
+        mpan_rates.update_previous_day(tariff_code, rates)
         update_powerwall_tariff()
 
 
 @event_trigger("octopus_energy_electricity_current_day_rates")
-def refresh_current_day_rates(mpan, rates, **kwargs):
-    debug(f"Current day rates for mpan {mpan}:\n{rates}")
+def refresh_current_day_rates(mpan, tariff_code, rates, **kwargs):
+    debug(f"Current day rates for mpan {mpan} ({tariff_code}):\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.update_current_day(rates)
+        mpan_rates.update_current_day(tariff_code, rates)
         update_powerwall_tariff()
 
 
 @event_trigger("octopus_energy_electricity_next_day_rates")
-def refresh_next_day_rates(mpan, rates, **kwargs):
-    debug(f"Next day rates for mpan {mpan}:\n{rates}")
+def refresh_next_day_rates(mpan, tariff_code, rates, **kwargs):
+    debug(f"Next day rates for mpan {mpan} ({tariff_code}):\n{rates}")
     mpan_rates = get_rates(mpan)
     if mpan_rates is not None:
-        mpan_rates.update_next_day(rates)
+        mpan_rates.update_next_day(tariff_code, rates)
         update_powerwall_tariff()
 
 
@@ -71,6 +72,16 @@ def set_status_message(value):
         input_text.powerwall_tariff_update_status = value
     except:
         pass
+
+
+def get_tariff_setting(tariff_code, config_key, default_value):
+    config = pyscript.app_config
+    for tariff_config in config.get("tariffs", []):
+        if re.match(tariff_config["tariff_code"], tariff_code):
+            if config_key in tariff_config:
+                config = tariff_config
+            break
+    return config.get(config_key, default_value)
 
 
 def update_powerwall_tariff():
@@ -96,12 +107,14 @@ def update_powerwall_tariff():
     IMPORT_RATES.reset()
     EXPORT_RATES.reset()
 
-    if not pyscript.app_config.get("maintain_history", False):
+    if not get_tariff_setting(IMPORT_RATES.current_tariff, "maintain_history", False):
         WEEK_SCHEDULES.reset()
+    if not get_tariff_setting(EXPORT_RATES.current_tariff, "maintain_history", False):
+        WEEK_SCHEDULES.reset(export=True)
 
 
-def get_breaks(config_key, default_value=None, required=True):
-    breaks = pyscript.app_config.get(config_key, default_value)
+def get_breaks(tariff_code, config_key, default_value=None, required=True):
+    breaks = get_tariff_setting(tariff_code, config_key, default_value)
     if breaks is None and required:
         raise ValueError(f"Missing breaks config for {config_key}")
     if breaks is not None and type(breaks) == list and len(breaks) != len(tariff.CHARGE_NAMES)-1:
@@ -109,8 +122,8 @@ def get_breaks(config_key, default_value=None, required=True):
     return breaks
 
 
-def get_pricing(config_key, default_value=None, required=True):
-    pricing = pyscript.app_config.get(config_key, default_value)
+def get_pricing(tariff_code, config_key, default_value=None, required=True):
+    pricing = get_tariff_setting(tariff_code, config_key, default_value)
     if pricing is None and required:
         raise ValueError(f"Missing pricing config for {config_key}")
     if pricing is not None and len(pricing) != len(tariff.CHARGE_NAMES):
@@ -118,8 +131,8 @@ def get_pricing(config_key, default_value=None, required=True):
     return pricing
 
 
-def get_sensor_value(config_key, default_value):
-    value = pyscript.app_config.get(config_key, default_value)
+def get_sensor_value(tariff_code, config_key, default_value):
+    value = get_tariff_setting(tariff_code, config_key, default_value)
     if type(value) == str:
         value = float(state.get(value))
     return value
@@ -132,24 +145,24 @@ def _update_schedules_for_day(day_date):
         return None, None
     export_rates = EXPORT_RATES.cover_day(day_date)
 
-    import_breaks = get_breaks("import_tariff_breaks", required=False)
+    import_breaks = get_breaks(IMPORT_RATES.current_tariff, "import_tariff_breaks", required=False)
     # backwards compatibility
     if import_breaks is None:
-        import_breaks = get_breaks("tariff_breaks")
-    plunge_pricing_breaks = get_breaks("plunge_pricing_tariff_breaks", required=False)
-    import_pricing = get_pricing("import_tariff_pricing", required=False)
+        import_breaks = get_breaks(IMPORT_RATES.current_tariff, "tariff_breaks")
+    plunge_pricing_breaks = get_breaks(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_breaks", required=False)
+    import_pricing = get_pricing(IMPORT_RATES.current_tariff, "import_tariff_pricing", required=False)
     # backwards compatibility
     if import_pricing is None:
-        import_pricing = get_pricing("tariff_pricing")
-    plunge_pricing_pricing = get_pricing("plunge_pricing_tariff_pricing", required=False)
+        import_pricing = get_pricing(IMPORT_RATES.current_tariff, "tariff_pricing")
+    plunge_pricing_pricing = get_pricing(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_pricing", required=False)
 
     import_schedules = tariff.get_schedules(import_breaks, import_pricing, plunge_pricing_breaks, plunge_pricing_pricing, import_rates)
     if import_schedules is None:
         return None, None
 
     if export_rates:
-        export_breaks = get_breaks("export_tariff_breaks", required=False)
-        export_pricing = get_pricing("export_tariff_pricing")
+        export_breaks = get_breaks(EXPORT_RATES.current_tariff, "export_tariff_breaks", required=False)
+        export_pricing = get_pricing(EXPORT_RATES.current_tariff, "export_tariff_pricing")
         if export_breaks:
             pricing_key = tariff.PRICE_KEY
             _export_rates = export_rates
@@ -198,9 +211,18 @@ def _update_powerwall_tariff():
     tomorrow = today + tariff.ONE_DAY_INCREMENT
     _update_schedules_for_day(tomorrow)
 
-    import_standing_charge = get_sensor_value("import_standing_charge", 0)
-    export_standing_charge = get_sensor_value("export_standing_charge", 0)
-    tariff_data = tariff.to_tariff_data(config, import_standing_charge, export_standing_charge, WEEK_SCHEDULES, today)
+    import_plan = get_tariff_setting(IMPORT_RATES.current_tariff, "tariff_name", "Import tariff")
+    export_plan = get_tariff_setting(EXPORT_RATES.current_tariff, "tariff_name", "Export tariff")
+    import_standing_charge = get_sensor_value(IMPORT_RATES.current_tariff, "import_standing_charge", 0)
+    export_standing_charge = get_sensor_value(EXPORT_RATES.current_tariff, "export_standing_charge", 0)
+    import_schedule_type = get_tariff_setting(IMPORT_RATES.current_tariff, "schedule_type", "week")
+    export_schedule_type = get_tariff_setting(EXPORT_RATES.current_tariff, "schedule_type", "week")
+    tariff_data = tariff.to_tariff_data(
+        config["tariff_provider"],
+        import_plan, import_standing_charge, import_schedule_type,
+        export_plan, export_standing_charge, export_schedule_type,
+        WEEK_SCHEDULES, today
+    )
 
     debug(f"Tariff data:\n{tariff_data}")
 

@@ -55,22 +55,28 @@ def _safe_less_than(x, y):
 
 class Rates:
     def __init__(self):
+        self.previous_tariff = None
         self.previous_day = []
         self._previous_day_updated = None
+        self.current_tariff = None
         self.current_day = []
         self._current_day_updated = None
+        self.next_tariff = None
         self.next_day = []
         self._next_day_updated = None
 
-    def update_previous_day(self, rates):
+    def update_previous_day(self, tariff_code, rates):
+        self.previous_tariff = tariff_code
         self.previous_day = rates
         self._previous_day_updated = dt.date.today()
 
-    def update_current_day(self, rates):
+    def update_current_day(self, tariff_code, rates):
+        self.current_tariff = tariff_code
         self.current_day = rates
         self._current_day_updated = dt.date.today()
 
-    def update_next_day(self, rates):
+    def update_next_day(self, tariff_code, rates):
+        self.next_tariff = tariff_code
         self.next_day = rates
         self._next_day_updated = dt.date.today()
 
@@ -170,10 +176,10 @@ class WeekSchedules:
     def get_schedules(self, weekday, export=False):
         return self.export_schedules[weekday] if export else self.import_schedules[weekday]
 #
-    def reset(self):
+    def reset(self, export=False):
+        schedules = self.export_schedules if export else self.import_schedules
         for i in range(7):
-            self.import_schedules[i] = None
-            self.export_schedules[i] = None
+            schedules[i] = None
 
 
 class RateFunctions:
@@ -480,37 +486,34 @@ def get_price_info(schedules):
     return price_info
 
 
-def to_tariff_data(config, import_standing_charge, export_standing_charge, week_schedules, day_date):
-    schedule_type = config.get("schedule_type", "week")
+def to_tariff_data(provider_name, import_plan, import_standing_charge, import_schedule_type, export_plan, export_standing_charge, export_schedule_type, week_schedules, day_date):
     weekday = day_date.weekday()
     current_import_schedules = week_schedules.get_schedules(weekday)
     current_export_schedules = week_schedules.get_schedules(weekday, export=True)
-    import_seasons = schedules_to_tariff(week_schedules, schedule_type, weekday)
+    import_seasons = schedules_to_tariff(week_schedules, import_schedule_type, weekday)
     buy_price_info = get_price_info(current_import_schedules);
 
     if current_export_schedules:
-        export_seasons = schedules_to_tariff(week_schedules, schedule_type, weekday, export=True)
+        export_seasons = schedules_to_tariff(week_schedules, export_schedule_type, weekday, export=True)
         sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons
         sell_price_info = {charge_name: 0 for charge_name in CHARGE_NAMES}
 
-    plan = config["tariff_name"]
-    provider = config["tariff_provider"]
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
     import_daily_charges = [{"name": "Charge", "amount": import_standing_charge}]
     export_daily_charges = [{"name": "Charge", "amount": export_standing_charge}]
     tariff_data = {
-        "name": plan,
-        "utility": provider,
+        "name": import_plan,
+        "utility": provider_name,
         "daily_charges": import_daily_charges,
         "demand_charges": demand_changes,
         "seasons": import_seasons,
         "energy_charges": {"ALL": {"ALL": 0},
                         "Summer": buy_price_info,
                         "Winter": {}},
-        "sell_tariff": {"name": plan,
-                     "utility": provider,
+        "sell_tariff": {"name": export_plan,
+                     "utility": provider_name,
                      "daily_charges": export_daily_charges,
                      "demand_charges": demand_changes,
                      "seasons": export_seasons,

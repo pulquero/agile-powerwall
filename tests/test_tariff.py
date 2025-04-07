@@ -95,10 +95,8 @@ class TestTariff(unittest.TestCase):
         self.assertEqual(6, data["Summer"]["tou_periods"]["OFF_PEAK"][1]["toDayOfWeek"])
 
     def test_calculate_tariff(self):
-        config = {"tariff_name": "Test",
-                  "tariff_provider": "Test",
-                  "import_tariff_breaks" : [0.1, 0.2, 0.3],
-                  "import_tariff_pricing": ["average", "average", "average", "average"]}
+        tariff_breaks = [0.1, 0.2, 0.3]
+        tariff_pricing = ["average", "average", "average", "average"]
         day = datetime.date(2023, 12, 27)
         import_rates = tariff.Rates()
         import_rates.previous_day = prev_rates
@@ -106,18 +104,18 @@ class TestTariff(unittest.TestCase):
         import_rates.next_day = next_rates
 
         day_rates = import_rates.cover_day(day)
-        import_schedules = tariff.get_schedules(config["import_tariff_breaks"], config["import_tariff_pricing"], None, None, day_rates)
+        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, None, day_rates)
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, None)
-        data = tariff.to_tariff_data(config, 0, 0, week_schedules, day)
+        data = tariff.to_tariff_data("Test", "Test plan", 0, "week", "Test plan", 0, "week", week_schedules, day)
         expected = """
-{"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
+{"name": "Test plan", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
 "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}},
 "seasons": {
     "Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}},
     "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0, "toMonth": 0, "tou_periods": {}}},
 "energy_charges": {"ALL": {"ALL": 0}, "Summer": {"SUPER_OFF_PEAK": 0.06697833333333333, "OFF_PEAK": 0.135209375, "PARTIAL_PEAK": 0.29274, "ON_PEAK": 0.304605}, "Winter": {}},
-"sell_tariff": {"name": "Test", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
+"sell_tariff": {"name": "Test plan", "utility": "Test", "daily_charges": [{"name": "Charge", "amount": 0}],
 "demand_charges": {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}},
 "seasons": {
     "Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31, "toMonth": 12, "tou_periods": {"SUPER_OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 1, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 6, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 20, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 0, "toMinute": 0}], "OFF_PEAK": [{"fromDayOfWeek": 0, "fromHour": 0, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 1, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 6, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 16, "toMinute": 0}, {"fromDayOfWeek": 0, "fromHour": 19, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 20, "toMinute": 0}], "PARTIAL_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 16, "toMinute": 30}, {"fromDayOfWeek": 0, "fromHour": 17, "fromMinute": 0, "toDayOfWeek": 6, "toHour": 19, "toMinute": 0}], "ON_PEAK": [{"fromDayOfWeek": 0, "fromHour": 16, "fromMinute": 30, "toDayOfWeek": 6, "toHour": 17, "toMinute": 0}]}},
