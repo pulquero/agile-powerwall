@@ -310,7 +310,7 @@ def set_tariff_data(tariff_data):
 
 
 @service("powerwall.set_settings")
-def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None):
+def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, allow_battery_export=None, verify=False):
     """yaml
     name: Set Powerwall settings
     description: Changes Powerwall settings
@@ -337,12 +337,61 @@ def set_settings(reserve_percentage=None, mode=None, allow_grid_charging=None, a
             description: enable battery export else PV only
             selector:
                 boolean:
+        verify:
+            description: verify settings have been updated
+            selector:
+                boolean:
     """
-    api_wrapper.set_powerwall_settings(
+    updated = False
+    retry_count = 0
+    while not updated:
+        if retry_count == 3:
+            raise Exception("Failed to update Powerwall settings")
+
+        api_wrapper.set_powerwall_settings(
+            email=pyscript.app_config["email"],
+            refresh_token=pyscript.app_config["refresh_token"],
+            reserve_percentage=reserve_percentage,
+            mode=mode,
+            allow_grid_charging=allow_grid_charging,
+            allow_battery_export=allow_battery_export
+        )
+        updated = True
+        retry_count += 1
+        if verify:
+            settings = api_wrapper.get_powerwall_settings(
+                email=pyscript.app_config["email"],
+                refresh_token=pyscript.app_config["refresh_token"]
+            )
+            if reserve_percentage is not None:
+                if settings["reserve_percentage"] == reserve_percentage:
+                    reserve_percentage = None
+                else:
+                    updated = False
+            if mode is not None:
+                if settings["mode"] == mode:
+                    mode = None
+                else:
+                    updated = False
+            if allow_grid_charging is not None:
+                if settings["allow_grid_charging"] == allow_grid_charging:
+                    allow_grid_charging = None
+                else:
+                    updated = False
+            if allow_battery_export is not None:
+                if settings["allow_battery_export"] == allow_battery_export:
+                    allow_battery_export = None
+                else:
+                    updated = False
+
+
+@service("powerwall.get_settings", supports_response="only")
+def get_settings():
+    """yaml
+    name: Get Powerwall settings
+    description: Gets Powerwall settings
+    """
+    return api_wrapper.get_powerwall_settings(
         email=pyscript.app_config["email"],
-        refresh_token=pyscript.app_config["refresh_token"],
-        reserve_percentage=reserve_percentage,
-        mode=mode,
-        allow_grid_charging=allow_grid_charging,
-        allow_battery_export=allow_battery_export
+        refresh_token=pyscript.app_config["refresh_token"]
     )
