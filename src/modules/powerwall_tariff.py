@@ -13,7 +13,7 @@ EXCLUSIVE_OFFSET = 0.000001
 ONE_DAY_INCREMENT = dt.timedelta(days=1)
 SLOT_TIME_INCREMENT = dt.timedelta(minutes=30)
 
-CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
+DEFAULT_CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 
 PRICE_KEY = "value_inc_vat"
 PRICE_CAP = 1.00
@@ -168,18 +168,30 @@ class WeekSchedules:
     def __init__(self):
         self.import_schedules = [None] * 7
         self.export_schedules = [None] * 7
+        self.import_charge_names = set()
+        self.export_charge_names = set()
 
     def update(self, weekday, import_schedules, export_schedules):
         self.import_schedules[weekday] = import_schedules
+        for schedule in import_schedules:
+            self.import_charge_names.add(schedule.charge_name)
         self.export_schedules[weekday] = export_schedules
+        if export_schedules:
+            for schedule in export_schedules:
+                self.export_charge_names.add(schedule.charge_name)
 
     def get_schedules(self, weekday, export=False):
         return self.export_schedules[weekday] if export else self.import_schedules[weekday]
 #
     def reset(self, export=False):
-        schedules = self.export_schedules if export else self.import_schedules
-        for i in range(7):
-            schedules[i] = None
+        if export:
+            for i in range(7):
+                self.export_schedules[i] = None
+            self.export_charge_names = set()
+        else:
+            for i in range(7):
+                self.import_schedules[i] = None
+            self.import_charge_names = set()
 
 
 class RateFunctions:
@@ -230,6 +242,11 @@ class PriceBandAssigner:
     def is_in(self, rate):
         cost = rate[PRICE_KEY]
         return (self.lower_bound is None or cost >= self.lower_bound) and (self.upper_bound is None or cost < self.upper_bound)
+
+    def __str__(self):
+        l = self.lower_bound if self.lower_bound is not None else '-'
+        u = self.upper_bound if self.upper_bound is not None else '-'
+        return f"[{l}, {u})"
 
 
 class AveragePricing:
@@ -331,7 +348,7 @@ def create_pricing(pricing_expr):
 
 def get_breaks(break_config, rates):
     if break_config == "jenks":
-        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(CHARGE_NAMES))
+        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(DEFAULT_CHARGE_NAMES))
         breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
     else:
         breaks = []
@@ -373,6 +390,9 @@ def populate_schedules(schedules, day_rates):
 
 
 def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, day_rates, pricing_key=PRICE_KEY):
+    if (breaks_config is not None) and (type(breaks_config) == list) and (tariff_pricing_config is not None) and (len(breaks_config) + 1 != len(tariff_pricing_config)):
+        raise ValueError(f"The number of breaks is inconsistent with the number of pricing functions.")
+
     if not day_rates:
         return None
 
@@ -394,8 +414,13 @@ def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_co
 
     assigner_funcs = get_tariff_assigners(configured_breaks, day_rates)
 
+    if len(assigner_funcs) <= 4:
+        charge_names = DEFAULT_CHARGE_NAMES
+    else:
+        charge_names = [str(assigner_func) for assigner_func in assigner_funcs]
+
     schedules = []
-    for i, charge_name in enumerate(CHARGE_NAMES):
+    for i, charge_name in enumerate(charge_names):
         pricing_func = create_pricing(configured_pricing[i])
         schedules.append(Schedule(charge_name, assigner_funcs[i], pricing_func, pricing_key))
 
@@ -425,7 +450,8 @@ def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_w
 
 
 def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
-    tou_periods = {charge_name: [] for charge_name in CHARGE_NAMES}
+    charge_names = week_schedules.export_charge_names if export else week_schedules.import_charge_names
+    tou_periods = {charge_name: [] for charge_name in charge_names}
 
     if schedule_type == "week":
         # week
@@ -498,7 +524,7 @@ def to_tariff_data(provider_name, import_plan, import_standing_charge, import_sc
         sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons
-        sell_price_info = {charge_name: 0 for charge_name in CHARGE_NAMES}
+        sell_price_info = {charge_name: 0 for charge_name in week_schedules.import_charge_names}
 
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
     import_daily_charges = [{"name": "Charge", "amount": import_standing_charge}]

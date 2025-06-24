@@ -117,8 +117,6 @@ def get_breaks(tariff_code, config_key, default_value=None, required=True):
     breaks = get_tariff_setting(tariff_code, config_key, default_value)
     if breaks is None and required:
         raise ValueError(f"Missing breaks config for {config_key}")
-    if breaks is not None and type(breaks) == list and len(breaks) != len(tariff.CHARGE_NAMES)-1:
-        raise ValueError(f"{len(tariff.CHARGE_NAMES)-1} breaks must be specified for {config_key}")
     return breaks
 
 
@@ -126,8 +124,6 @@ def get_pricing(tariff_code, config_key, default_value=None, required=True):
     pricing = get_tariff_setting(tariff_code, config_key, default_value)
     if pricing is None and required:
         raise ValueError(f"Missing pricing config for {config_key}")
-    if pricing is not None and len(pricing) != len(tariff.CHARGE_NAMES):
-        raise ValueError(f"{len(tariff.CHARGE_NAMES)} pricing functions must be specified for {config_key}")
     return pricing
 
 
