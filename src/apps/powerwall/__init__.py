@@ -141,15 +141,9 @@ def _update_schedules_for_day(day_date):
         return None, None
     export_rates = EXPORT_RATES.cover_day(day_date)
 
-    import_breaks = get_breaks(IMPORT_RATES.current_tariff, "import_tariff_breaks", required=False)
-    # backwards compatibility
-    if import_breaks is None:
-        import_breaks = get_breaks(IMPORT_RATES.current_tariff, "tariff_breaks")
+    import_breaks = get_breaks(IMPORT_RATES.current_tariff, "import_tariff_breaks", default_value=tariff.DEFAULT_BREAKS, required=True)
     plunge_pricing_breaks = get_breaks(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_breaks", required=False)
-    import_pricing = get_pricing(IMPORT_RATES.current_tariff, "import_tariff_pricing", required=False)
-    # backwards compatibility
-    if import_pricing is None:
-        import_pricing = get_pricing(IMPORT_RATES.current_tariff, "tariff_pricing")
+    import_pricing = get_pricing(IMPORT_RATES.current_tariff, "import_tariff_pricing", default_value=tariff.DEFAULT_PRICING, required=True)
     plunge_pricing_pricing = get_pricing(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_pricing", required=False)
 
     import_schedules = tariff.get_schedules(import_breaks, import_pricing, plunge_pricing_breaks, plunge_pricing_pricing, import_rates)
@@ -157,20 +151,9 @@ def _update_schedules_for_day(day_date):
         return None, None
 
     if export_rates:
-        export_breaks = get_breaks(EXPORT_RATES.current_tariff, "export_tariff_breaks", required=False)
-        export_pricing = get_pricing(EXPORT_RATES.current_tariff, "export_tariff_pricing")
-        if export_breaks:
-            pricing_key = tariff.PRICE_KEY
-            _export_rates = export_rates
-        else:
-            # backwards compatibility
-            export_breaks = import_breaks
-            pricing_key = "export_price"
-            _export_rates = []
-            for ir, er in zip(import_rates, export_rates):
-                r = {**ir, pricing_key: er[tariff.PRICE_KEY]}
-                _export_rates.append(r)
-        export_schedules = tariff.get_schedules(export_breaks, export_pricing, None, None, _export_rates, pricing_key=pricing_key)
+        export_breaks = get_breaks(EXPORT_RATES.current_tariff, "export_tariff_breaks", default_value=tariff.DEFAULT_BREAKS, required=True)
+        export_pricing = get_pricing(EXPORT_RATES.current_tariff, "export_tariff_pricing", default_value=tariff.DEFAULT_PRICING, required=True)
+        export_schedules = tariff.get_schedules(export_breaks, export_pricing, None, None, export_rates)
     else:
         export_schedules = None
 

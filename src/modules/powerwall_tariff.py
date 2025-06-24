@@ -5,7 +5,7 @@ import sys
 
 if "/config/pyscript_packages" not in sys.path:
     sys.path.append("/config/pyscript_packages")
-import jenkspy
+#import jenkspy
 
 
 EXCLUSIVE_OFFSET = 0.000001
@@ -13,10 +13,21 @@ EXCLUSIVE_OFFSET = 0.000001
 ONE_DAY_INCREMENT = dt.timedelta(days=1)
 SLOT_TIME_INCREMENT = dt.timedelta(minutes=30)
 
-DEFAULT_CHARGE_NAMES = ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
+DEFAULT_CHARGE_NAMES = [
+    ["PARTIAL_PEAK"],
+    ["OFF_PEAK", "ON_PEAK"],
+    ["SUPER_OFF_PEAK", "OFF_PEAK", "ON_PEAK"],
+    ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
+]
 
 PRICE_KEY = "value_inc_vat"
 PRICE_CAP = 1.00
+
+INDIVIDUAL_BREAKS = "individual"
+JENKS_BREAKS = "jenks"
+
+DEFAULT_BREAKS = INDIVIDUAL_BREAKS
+DEFAULT_PRICING = "average"
 
 
 def get_day_bounds(day_date):
@@ -243,7 +254,7 @@ class PriceBandAssigner:
         cost = rate[PRICE_KEY]
         return (self.lower_bound is None or cost >= self.lower_bound) and (self.upper_bound is None or cost < self.upper_bound)
 
-    def __str__(self):
+    def get_charge_name(self):
         l = self.lower_bound if self.lower_bound is not None else '-'
         u = self.upper_bound if self.upper_bound is not None else '-'
         return f"[{l}, {u})"
@@ -347,7 +358,11 @@ def create_pricing(pricing_expr):
 
 
 def get_breaks(break_config, rates):
-    if break_config == "jenks":
+    if break_config == INDIVIDUAL_BREAKS:
+        unique_prices = set([r[PRICE_KEY] for r in rates])
+        unique_prices = sorted(unique_prices)
+        breaks = unique_prices[1:]
+    elif break_config == JENKS_BREAKS:
         bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(DEFAULT_CHARGE_NAMES))
         breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
     else:
@@ -389,7 +404,7 @@ def populate_schedules(schedules, day_rates):
         schedule.add(rate)
 
 
-def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, day_rates, pricing_key=PRICE_KEY):
+def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, day_rates):
     if (breaks_config is not None) and (type(breaks_config) == list) and (tariff_pricing_config is not None) and (len(breaks_config) + 1 != len(tariff_pricing_config)):
         raise ValueError(f"The number of breaks is inconsistent with the number of pricing functions.")
 
@@ -414,15 +429,17 @@ def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_co
 
     assigner_funcs = get_tariff_assigners(configured_breaks, day_rates)
 
-    if len(assigner_funcs) <= 4:
-        charge_names = DEFAULT_CHARGE_NAMES
+    charge_name_count = len(assigner_funcs)
+    if charge_name_count <= 4:
+        charge_names = DEFAULT_CHARGE_NAMES[charge_name_count - 1]
     else:
-        charge_names = [str(assigner_func) for assigner_func in assigner_funcs]
+        charge_names = [assigner_func.get_charge_name() for assigner_func in assigner_funcs]
 
     schedules = []
-    for i, charge_name in enumerate(charge_names):
-        pricing_func = create_pricing(configured_pricing[i])
-        schedules.append(Schedule(charge_name, assigner_funcs[i], pricing_func, pricing_key))
+    for i in range(charge_name_count):
+        pricing_expr = configured_pricing[i] if type(configured_pricing) == list else configured_pricing
+        pricing_func = create_pricing(pricing_expr)
+        schedules.append(Schedule(charge_names[i], assigner_funcs[i], pricing_func, PRICE_KEY))
 
     populate_schedules(schedules, day_rates)
 
