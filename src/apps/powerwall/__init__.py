@@ -2,6 +2,7 @@ import datetime as dt
 import re
 import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
+import json
 from jsondiff import diff
 
 
@@ -203,7 +204,7 @@ def _update_powerwall_tariff():
         WEEK_SCHEDULES, today
     )
 
-    debug(f"Tariff data:\n{tariff_data}")
+    debug(f"Tariff data:\n{json.dumps(tariff_data)}")
 
     current_tariff_data = _get_tariff_data()
     tariff_change = diff(tariff_data, current_tariff_data)
