@@ -1,3 +1,4 @@
+from collections import defaultdict
 import datetime as dt
 import itertools
 import sys
@@ -28,6 +29,8 @@ JENKS_BREAKS = "jenks"
 
 DEFAULT_BREAKS = INDIVIDUAL_BREAKS
 DEFAULT_PRICING = "average"
+
+DAYS_IN_WEEK = 7
 
 
 def get_day_bounds(day_date):
@@ -177,32 +180,20 @@ class Schedule:
 
 class WeekSchedules:
     def __init__(self):
-        self.import_schedules = [None] * 7
-        self.export_schedules = [None] * 7
-        self.import_charge_names = set()
-        self.export_charge_names = set()
+        self.import_schedules = [None] * DAYS_IN_WEEK
+        self.export_schedules = [None] * DAYS_IN_WEEK
 
     def update(self, weekday, import_schedules, export_schedules):
         self.import_schedules[weekday] = import_schedules
-        for schedule in import_schedules:
-            self.import_charge_names.add(schedule.charge_name)
         self.export_schedules[weekday] = export_schedules
-        if export_schedules:
-            for schedule in export_schedules:
-                self.export_charge_names.add(schedule.charge_name)
 
     def get_schedules(self, weekday, export=False):
         return self.export_schedules[weekday] if export else self.import_schedules[weekday]
 #
     def reset(self, export=False):
-        if export:
-            for i in range(7):
-                self.export_schedules[i] = None
-            self.export_charge_names = set()
-        else:
-            for i in range(7):
-                self.import_schedules[i] = None
-            self.import_charge_names = set()
+        schedules = self.export_schedules if export else self.import_schedules
+        for i in range(DAYS_IN_WEEK):
+            schedules[i] = None
 
 
 class RateFunctions:
@@ -243,6 +234,18 @@ class RateFunctions:
 
 
 RATE_FUNCS = RateFunctions()
+
+
+class PriceAssigner:
+    def __init__(self, price):
+        self.price = price
+
+    def is_in(self, rate):
+        cost = rate[PRICE_KEY]
+        return (self.price == cost)
+
+    def get_charge_name(self):
+        return f"{self.price}"
 
 
 class PriceBandAssigner:
@@ -357,40 +360,36 @@ def create_pricing(pricing_expr):
     return pricing_type(*func_args)
 
 
-def get_breaks(break_config, rates):
+def get_tariff_assigners(break_config, rates):
     if break_config == INDIVIDUAL_BREAKS:
         unique_prices = set([r[PRICE_KEY] for r in rates])
-        unique_prices = sorted(unique_prices)
-        breaks = unique_prices[1:]
-    elif break_config == JENKS_BREAKS:
-        bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(DEFAULT_CHARGE_NAMES))
-        breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
+        funcs = [PriceAssigner(price) for price in sorted(unique_prices)]
     else:
-        breaks = []
-        for br in break_config:
-            if isinstance(br, float) or isinstance(br, int):
-                v = br
-            elif isinstance(br, str) and '(' in br and br[-1] == ')':
-                sep = br.index('(')
-                func_name = br[:sep]
-                func_args = [arg.strip() for arg in br[sep+1:-1].split(',')]
-                v = RATE_FUNCS.apply(func_name, rates, *func_args)
-            else:
-                raise ValueError(f"Invalid threshold: {br}")
-            breaks.append(v)
-        # ensure ascending order
-        breaks.sort()
+        if break_config == JENKS_BREAKS:
+            bounds = jenkspy.jenks_breaks([r[PRICE_KEY] for r in rates], n_classes=len(DEFAULT_CHARGE_NAMES))
+            breaks = [b + EXCLUSIVE_OFFSET for b in bounds[1:-1]]
+        else:
+            breaks = []
+            for br in break_config:
+                if isinstance(br, float) or isinstance(br, int):
+                    v = br
+                elif isinstance(br, str) and '(' in br and br[-1] == ')':
+                    sep = br.index('(')
+                    func_name = br[:sep]
+                    func_args = [arg.strip() for arg in br[sep+1:-1].split(',')]
+                    v = RATE_FUNCS.apply(func_name, rates, *func_args)
+                else:
+                    raise ValueError(f"Invalid threshold: {br}")
+                breaks.append(v)
+            # ensure ascending order
+            breaks.sort()
 
-    return breaks
+        funcs = []
+        for i in range(len(breaks)+1):
+            lower_bound = breaks[i-1] if i > 0 else None
+            upper_bound = breaks[i] if i < len(breaks) else None
+            funcs.append(PriceBandAssigner(lower_bound, upper_bound))
 
-
-def get_tariff_assigners(break_config, rates):
-    breaks = get_breaks(break_config, rates)
-    funcs = []
-    for i in range(len(breaks)+1):
-        lower_bound = breaks[i-1] if i > 0 else None
-        upper_bound = breaks[i] if i < len(breaks) else None
-        funcs.append(PriceBandAssigner(lower_bound, upper_bound))
     return funcs
 
 
@@ -467,8 +466,7 @@ def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_w
 
 
 def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
-    charge_names = week_schedules.export_charge_names if export else week_schedules.import_charge_names
-    tou_periods = {charge_name: [] for charge_name in charge_names}
+    tou_periods = defaultdict(list)
 
     if schedule_type == "week":
         # week
@@ -541,7 +539,7 @@ def to_tariff_data(provider_name, import_plan, import_standing_charge, import_sc
         sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons
-        sell_price_info = {charge_name: 0 for charge_name in week_schedules.import_charge_names}
+        sell_price_info = {charge_name: 0 for charge_name in buy_price_info}
 
     demand_changes = {"ALL": {"ALL": 0}, "Summer": {}, "Winter": {}}
     import_daily_charges = [{"name": "Charge", "amount": import_standing_charge}]

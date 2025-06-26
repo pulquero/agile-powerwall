@@ -1,0 +1,583 @@
+{
+	"name": "Test plan",
+	"utility": "Test",
+	"daily_charges": [
+		{
+			"name": "Charge",
+			"amount": 0
+		}
+	],
+	"demand_charges": {
+		"ALL": {
+			"ALL": 0
+		},
+		"Summer": {
+			
+		},
+		"Winter": {
+			
+		}
+	},
+	"seasons": {
+		"Summer": {
+			"fromMonth": 1,
+			"fromDay": 1,
+			"toDay": 31,
+			"toMonth": 12,
+			"tou_periods": {
+				"0.01848": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 22,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 0,
+						"toMinute": 0
+					}
+				],
+				"0.03465": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 21,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 22,
+						"toMinute": 0
+					}
+				],
+				"0.0462": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 22,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 22,
+						"toMinute": 30
+					}
+				],
+				"0.053445": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 20,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 21,
+						"toMinute": 0
+					}
+				],
+				"0.05964": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 21,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 21,
+						"toMinute": 30
+					}
+				],
+				"0.0651": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 3,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 4,
+						"toMinute": 0
+					}
+				],
+				"0.065625": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 2,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 3,
+						"toMinute": 0
+					}
+				],
+				"0.07392": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 4,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 5,
+						"toMinute": 0
+					}
+				],
+				"0.085365": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 5,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 6,
+						"toMinute": 0
+					}
+				],
+				"0.0924": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 3,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 3,
+						"toMinute": 30
+					}
+				],
+				"0.09471": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 2,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 2,
+						"toMinute": 30
+					},
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 4,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 4,
+						"toMinute": 30
+					},
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 5,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 5,
+						"toMinute": 30
+					},
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 6,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 6,
+						"toMinute": 30
+					}
+				],
+				"0.09702": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 1,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 2,
+						"toMinute": 0
+					}
+				],
+				"0.097965": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 20,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 20,
+						"toMinute": 30
+					}
+				],
+				"0.10395": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 8,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 8,
+						"toMinute": 30
+					}
+				],
+				"0.11088": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 9,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 9,
+						"toMinute": 30
+					}
+				],
+				"0.12012": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 0,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 0,
+						"toMinute": 30
+					}
+				],
+				"0.12201": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 10,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 10,
+						"toMinute": 30
+					}
+				],
+				"0.12243": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 1,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 1,
+						"toMinute": 30
+					},
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 6,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 7,
+						"toMinute": 0
+					}
+				],
+				"0.12474": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 19,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 20,
+						"toMinute": 0
+					}
+				],
+				"0.12705": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 11,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 11,
+						"toMinute": 30
+					}
+				],
+				"0.127785": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 7,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 7,
+						"toMinute": 30
+					}
+				],
+				"0.12936": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 7,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 8,
+						"toMinute": 0
+					}
+				],
+				"0.132405": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 14,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 15,
+						"toMinute": 0
+					}
+				],
+				"0.1344": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 15,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 15,
+						"toMinute": 30
+					}
+				],
+				"0.13839": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 13,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 14,
+						"toMinute": 0
+					}
+				],
+				"0.14322": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 13,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 13,
+						"toMinute": 30
+					}
+				],
+				"0.14427": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 9,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 10,
+						"toMinute": 0
+					}
+				],
+				"0.14532": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 14,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 14,
+						"toMinute": 30
+					}
+				],
+				"0.14553": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 11,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 12,
+						"toMinute": 0
+					}
+				],
+				"0.14595": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 19,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 19,
+						"toMinute": 30
+					}
+				],
+				"0.14784": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 12,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 13,
+						"toMinute": 0
+					}
+				],
+				"0.148785": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 15,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 16,
+						"toMinute": 0
+					}
+				],
+				"0.15015": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 0,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 1,
+						"toMinute": 0
+					}
+				],
+				"0.151515": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 10,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 11,
+						"toMinute": 0
+					}
+				],
+				"0.158655": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 8,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 9,
+						"toMinute": 0
+					}
+				],
+				"0.28497": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 16,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 16,
+						"toMinute": 30
+					}
+				],
+				"0.28749": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 18,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 19,
+						"toMinute": 0
+					}
+				],
+				"0.295995": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 17,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 18,
+						"toMinute": 30
+					}
+				],
+				"0.29925": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 17,
+						"fromMinute": 0,
+						"toDayOfWeek": 6,
+						"toHour": 17,
+						"toMinute": 30
+					}
+				],
+				"0.304605": [
+					{
+						"fromDayOfWeek": 0,
+						"fromHour": 16,
+						"fromMinute": 30,
+						"toDayOfWeek": 6,
+						"toHour": 17,
+						"toMinute": 0
+					}
+				]
+			}
+		},
+		"Winter": {
+			"fromMonth": 0,
+			"fromDay": 0,
+			"toDay": 0,
+			"toMonth": 0,
+			"tou_periods": {
+				
+			}
+		}
+	},
+	"energy_charges": {
+		"ALL": {
+			"ALL": 0
+		},
+		"Summer": {
+			"0.01848": 0.01848,
+			"0.03465": 0.03465,
+			"0.0462": 0.0462,
+			"0.053445": 0.053445,
+			"0.05964": 0.05964,
+			"0.0651": 0.0651,
+			"0.065625": 0.065625,
+			"0.07392": 0.07392,
+			"0.085365": 0.085365,
+			"0.0924": 0.0924,
+			"0.09471": 0.09471,
+			"0.09702": 0.09702,
+			"0.097965": 0.097965,
+			"0.10395": 0.10395,
+			"0.11088": 0.11088,
+			"0.12012": 0.12012,
+			"0.12201": 0.12201,
+			"0.12243": 0.12243,
+			"0.12474": 0.12474,
+			"0.12705": 0.12705,
+			"0.127785": 0.127785,
+			"0.12936": 0.12936,
+			"0.132405": 0.132405,
+			"0.1344": 0.1344,
+			"0.13839": 0.13839,
+			"0.14322": 0.14322,
+			"0.14427": 0.14427,
+			"0.14532": 0.14532,
+			"0.14553": 0.14553,
+			"0.14595": 0.14595,
+			"0.14784": 0.14784,
+			"0.148785": 0.148785,
+			"0.15015": 0.15015,
+			"0.151515": 0.151515,
+			"0.158655": 0.158655,
+			"0.28497": 0.28497,
+			"0.28749": 0.28749,
+			"0.295995": 0.295995,
+			"0.29925": 0.29925,
+			"0.304605": 0.304605
+		},
+		"Winter": {
+			
+		}
+	},
+	"sell_tariff": {
+		"name": "Test plan",
+		"utility": "Test",
+		"daily_charges": [
+			{
+				"name": "Charge",
+				"amount": 0
+			}
+		],
+		"demand_charges": {
+			"ALL": {
+				"ALL": 0
+			},
+			"Summer": {
+				
+			},
+			"Winter": {
+				
+			}
+		},
+		"seasons": {
+			"Summer": {
+				"fromMonth": 1,
+				"fromDay": 1,
+				"toDay": 31,
+				"toMonth": 12,
+				"tou_periods": {
+					"PARTIAL_PEAK": [
+						{
+							"fromDayOfWeek": 0,
+							"fromHour": 0,
+							"fromMinute": 0,
+							"toDayOfWeek": 6,
+							"toHour": 0,
+							"toMinute": 0
+						}
+					]
+				}
+			},
+			"Winter": {
+				"fromMonth": 0,
+				"fromDay": 0,
+				"toDay": 0,
+				"toMonth": 0,
+				"tou_periods": {
+					
+				}
+			}
+		},
+		"energy_charges": {
+			"ALL": {
+				"ALL": 0
+			},
+			"Summer": {
+				"PARTIAL_PEAK": 0.15
+			},
+			"Winter": {
+				
+			}
+		}
+	}
+}
