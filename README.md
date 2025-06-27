@@ -49,6 +49,8 @@ using
 
 `export_standing_charge`: sensor name or value (default 0).
 
+`time_zone`: if you encounter time zone issues, you can either set this to an explicit time zone, e.g. `time_zone: "Europe/London"` or the name of a sensor that provides the time zone (e.g. https://community.home-assistant.io/t/how-to-obtain-ha-timezone-in-lovelace/393449/2)
+
 
 ### Advanced
 

@@ -460,9 +460,9 @@ def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_co
     return schedules
 
 
-def to_charge_period_json(start_day_of_week, end_day_of_week, period):
-    start_local = period[0].astimezone()
-    end_local = period[1].astimezone()
+def to_charge_period_json(start_day_of_week, end_day_of_week, period, tz):
+    start_local = period[0].astimezone(tz)
+    end_local = period[1].astimezone(tz)
     return {
         "fromDayOfWeek": start_day_of_week,
         "fromHour": start_local.hour,
@@ -473,20 +473,20 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period):
     }
 
 
-def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_week):
+def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_week, tz):
     for schedule in schedules:
         charge_periods = tou_periods[schedule.charge_name]
         for period in schedule.get_periods():
-            charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period))
+            charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period, tz))
 
 
-def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
+def schedules_to_tariff(week_schedules, schedule_type, weekday, tz=None, export=False):
     tou_periods = defaultdict(list)
 
     if schedule_type == "week":
         # week
         today_schedules = week_schedules.get_schedules(weekday, export)
-        populate_tou_periods(tou_periods, today_schedules, 0, 6)
+        populate_tou_periods(tou_periods, today_schedules, 0, 6, tz)
     elif schedule_type == "weekend":
         # midweek/weekend when possible
         if is_midweek(weekday):
@@ -505,12 +505,12 @@ def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
                     break
     
         if midweek_schedules and weekend_schedules:
-            populate_tou_periods(tou_periods, midweek_schedules, 0, 4)
-            populate_tou_periods(tou_periods, weekend_schedules, 5, 6)
+            populate_tou_periods(tou_periods, midweek_schedules, 0, 4, tz)
+            populate_tou_periods(tou_periods, weekend_schedules, 5, 6, tz)
         elif midweek_schedules:
-            populate_tou_periods(tou_periods, midweek_schedules, 0, 6)
+            populate_tou_periods(tou_periods, midweek_schedules, 0, 6, tz)
         elif weekend_schedules:
-            populate_tou_periods(tou_periods, weekend_schedules, 0, 6)
+            populate_tou_periods(tou_periods, weekend_schedules, 0, 6, tz)
         else:
             raise ValueError("At least one schedule is required")
     elif schedule_type == "multiday":
@@ -520,11 +520,11 @@ def schedules_to_tariff(week_schedules, schedule_type, weekday, export=False):
             schedules = week_schedules.get_schedules(i, export)
             if schedules:
                 if last_schedules:
-                    populate_tou_periods(tou_periods, last_schedules, start, i-1)
+                    populate_tou_periods(tou_periods, last_schedules, start, i-1, tz)
                     start = i
                 last_schedules = schedules
         if last_schedules:
-            populate_tou_periods(tou_periods, last_schedules, start, 6)
+            populate_tou_periods(tou_periods, last_schedules, start, 6, tz)
     else:
         raise ValueError(f"Invalid schedule type: {schedule_type}")
 
@@ -542,15 +542,15 @@ def get_price_info(schedules):
     return price_info
 
 
-def to_tariff_data(provider_name, import_plan, import_standing_charge, import_schedule_type, export_plan, export_standing_charge, export_schedule_type, week_schedules, day_date):
+def to_tariff_data(provider_name, import_plan, import_standing_charge, import_schedule_type, export_plan, export_standing_charge, export_schedule_type, week_schedules, day_date, tz=None):
     weekday = day_date.weekday()
     current_import_schedules = week_schedules.get_schedules(weekday)
     current_export_schedules = week_schedules.get_schedules(weekday, export=True)
-    import_seasons = schedules_to_tariff(week_schedules, import_schedule_type, weekday)
+    import_seasons = schedules_to_tariff(week_schedules, import_schedule_type, weekday, tz=tz)
     buy_price_info = get_price_info(current_import_schedules);
 
     if current_export_schedules:
-        export_seasons = schedules_to_tariff(week_schedules, export_schedule_type, weekday, export=True)
+        export_seasons = schedules_to_tariff(week_schedules, export_schedule_type, weekday, tz=tz, export=True)
         sell_price_info = get_price_info(current_export_schedules);
     else:
         export_seasons = import_seasons

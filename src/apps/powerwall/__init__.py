@@ -1,4 +1,5 @@
 import datetime as dt
+import zoneinfo
 import re
 import powerwall_tariff as tariff
 import teslapy_wrapper as api_wrapper
@@ -197,11 +198,19 @@ def _update_powerwall_tariff():
     export_standing_charge = get_sensor_value(EXPORT_RATES.current_tariff, "export_standing_charge", 0)
     import_schedule_type = get_tariff_setting(IMPORT_RATES.current_tariff, "schedule_type", "week")
     export_schedule_type = get_tariff_setting(EXPORT_RATES.current_tariff, "schedule_type", "week")
+    tz_config = config.get("time_zone")
+    if tz_config:
+        if tz_config.startswith("sensor."):
+            tz_config = state.get(tz_config)
+        tz = zoneinfo.ZoneInfo(tz_config)
+    else:
+        tz = None
+
     tariff_data = tariff.to_tariff_data(
         config["tariff_provider"],
         import_plan, import_standing_charge, import_schedule_type,
         export_plan, export_standing_charge, export_schedule_type,
-        WEEK_SCHEDULES, today
+        WEEK_SCHEDULES, today, tz=tz
     )
 
     debug(f"Tariff data:\n{json.dumps(tariff_data)}")
