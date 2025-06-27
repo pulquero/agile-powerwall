@@ -177,6 +177,9 @@ class Schedule:
             self._value = self.pricing_func.get_value()
         return self._value
 
+    def to_string(self):
+        return f"{self.charge_name} {self.assigner_func.__class__.__name__} {self.pricing_func.__class__.__name__}: {self.get_periods()}"
+
 
 class WeekSchedules:
     def __init__(self):
@@ -189,11 +192,23 @@ class WeekSchedules:
 
     def get_schedules(self, weekday, export=False):
         return self.export_schedules[weekday] if export else self.import_schedules[weekday]
-#
+
     def reset(self, export=False):
         schedules = self.export_schedules if export else self.import_schedules
         for i in range(DAYS_IN_WEEK):
             schedules[i] = None
+
+    def _str(self, name, schedules):
+        s = f"{name}\n"
+        for day, schs in enumerate(schedules):
+            s += f" {day}: "
+            if schs:
+                s += "\n    ".join([str(sch) for sch in schs])
+            s += "\n"
+        return s
+
+    def to_string(self):
+        return self._str("Import", self.import_schedules) + self._str("Export", self.export_schedules)
 
 
 class RateFunctions:
