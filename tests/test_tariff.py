@@ -110,7 +110,7 @@ class TestTariff(unittest.TestCase):
         import_rates.next_day = next_rates
 
         day_rates = import_rates.cover_day(day)
-        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, None, day_rates)
+        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, day, day_rates)
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, None)
         data = tariff.to_tariff_data("Test", "Test plan", 0, "week", "Test plan", 0, "week", week_schedules, day)
@@ -127,7 +127,7 @@ class TestTariff(unittest.TestCase):
         import_rates.next_day = next_rates
 
         day_rates = import_rates.cover_day(day)
-        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, None, day_rates)
+        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, day, day_rates)
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, None)
         data = tariff.to_tariff_data("Test", "Test plan", 0, "week", "Test plan", 0, "week", week_schedules, day)
@@ -147,8 +147,8 @@ class TestTariff(unittest.TestCase):
 
         import_day_rates = import_rates.cover_day(day)
         export_day_rates = export_rates.cover_day(day)
-        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, None, import_day_rates)
-        export_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, None, export_day_rates)
+        import_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, day, import_day_rates)
+        export_schedules = tariff.get_schedules(tariff_breaks, tariff_pricing, None, day, export_day_rates)
         week_schedules = tariff.WeekSchedules()
         week_schedules.update(day.weekday(), import_schedules, export_schedules)
         data = tariff.to_tariff_data("Test", "Test plan", 0, "week", "Test plan", 0, "week", week_schedules, day)

@@ -84,6 +84,12 @@ So, in the example above, anything below £0.10 is mapped to Super Off-Peak, bet
 
 `export_tariff_pricing`: determines how to calculate the price of each export pricing level from the actual prices assigned to a level.
 
+`import_tariff_pricing_names`: names to assign to the pricing levels.
+
+`plunge_pricing_pricing_names`: same as `import_tariff_pricing_names`, but applied if there are any plunge (negative) prices.
+
+`export_tariff_pricing_names`: same as `import_tariff_pricing_names`, but for export pricing levels.
+
 `schedule_type`: one of:
 
  - `week` - current day rates are used for the week (default).

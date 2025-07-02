@@ -418,13 +418,7 @@ def populate_schedules(schedules, day_rates):
         schedule.add(rate)
 
 
-def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, day_rates):
-    if (breaks_config is not None) and (type(breaks_config) == list) and (tariff_pricing_config is not None) and (len(breaks_config) + 1 != len(tariff_pricing_config)):
-        raise ValueError(f"The number of breaks is inconsistent with the number of pricing functions.")
-
-    if not day_rates:
-        return None
-
+def get_import_schedules(breaks_config, tariff_pricing_config, tariff_pricing_names, plunge_pricing_breaks_config, plunge_pricing_tariff_pricing_config, plunge_pricing_tariff_pricing_names, day_date, day_rates):
     plunge_pricing = False
     for rate in day_rates:
         if rate[PRICE_KEY] < 0.0:
@@ -441,17 +435,41 @@ def get_schedules(breaks_config, tariff_pricing_config, plunge_pricing_breaks_co
     else:
         configured_pricing = tariff_pricing_config
 
-    assigner_funcs = get_tariff_assigners(configured_breaks, day_rates)
+    if plunge_pricing and plunge_pricing_tariff_pricing_names:
+        configured_pricing_names = plunge_pricing_tariff_pricing_names
+    else:
+        configured_pricing_names = tariff_pricing_names
+
+    return get_schedules(configured_breaks, configured_pricing, configured_pricing_names, day_date, day_rates)
+
+
+def get_export_schedules(breaks_config, tariff_pricing_config, tariff_pricing_names, day_date, day_rates):
+    return get_schedules(breaks_config, tariff_pricing_config, tariff_pricing_names, day_date, day_rates)
+
+
+def get_schedules(breaks_config, tariff_pricing_config, tariff_pricing_names, day_date, day_rates):
+    if (breaks_config is not None) and (type(breaks_config) == list) and (tariff_pricing_config is not None) and (len(breaks_config) + 1 != len(tariff_pricing_config)):
+        raise ValueError(f"The number of breaks is inconsistent with the number of pricing functions.")
+
+    if not day_rates:
+        return None
+
+    assigner_funcs = get_tariff_assigners(breaks_config, day_rates)
 
     charge_name_count = len(assigner_funcs)
-    if charge_name_count <= 4:
-        charge_names = DEFAULT_CHARGE_NAMES[charge_name_count - 1]
+    if tariff_pricing_names is None:
+        if charge_name_count <= 4:
+            charge_names = DEFAULT_CHARGE_NAMES[charge_name_count - 1]
+        else:
+            charge_names = [assigner_func.get_charge_name() for assigner_func in assigner_funcs]
     else:
-        charge_names = [assigner_func.get_charge_name() for assigner_func in assigner_funcs]
+        charge_names = tariff_pricing_names
+        if charge_names < charge_name_count:
+            charge_names += [assigner_func.get_charge_name() for assigner_func in assigner_funcs[charge_name_count:]]
 
     schedules = []
     for i in range(charge_name_count):
-        pricing_expr = configured_pricing[i] if type(configured_pricing) == list else configured_pricing
+        pricing_expr = tariff_pricing_config[i] if type(tariff_pricing_config) == list else tariff_pricing_config
         pricing_func = create_pricing(pricing_expr)
         schedules.append(Schedule(charge_names[i], assigner_funcs[i], pricing_func, PRICE_KEY))
 

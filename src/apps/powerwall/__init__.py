@@ -83,6 +83,7 @@ def get_tariff_setting(tariff_code, config_key, default_value):
             if config_key in tariff_config:
                 config = tariff_config
             break
+
     return config.get(config_key, default_value)
 
 
@@ -129,6 +130,13 @@ def get_pricing(tariff_code, config_key, default_value=None, required=True):
     return pricing
 
 
+def get_pricing_names(tariff_code, config_key, default_value=None, required=True):
+    pricing_names = get_tariff_setting(tariff_code, config_key, default_value)
+    if pricing_names is None and required:
+        raise ValueError(f"Missing pricing names config for {config_key}")
+    return pricing_names
+
+
 def get_sensor_value(tariff_code, config_key, default_value):
     value = get_tariff_setting(tariff_code, config_key, default_value)
     if type(value) == str:
@@ -147,15 +155,18 @@ def _update_schedules_for_day(day_date):
     plunge_pricing_breaks = get_breaks(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_breaks", required=False)
     import_pricing = get_pricing(IMPORT_RATES.current_tariff, "import_tariff_pricing", default_value=tariff.DEFAULT_PRICING, required=True)
     plunge_pricing_pricing = get_pricing(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_pricing", required=False)
+    import_pricing_names = get_pricing_names(IMPORT_RATES.current_tariff, "import_tariff_pricing_names", required=False)
+    plunge_pricing_pricing_names = get_pricing_names(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_pricing_names", required=False)
 
-    import_schedules = tariff.get_schedules(import_breaks, import_pricing, plunge_pricing_breaks, plunge_pricing_pricing, import_rates)
+    import_schedules = tariff.get_import_schedules(import_breaks, import_pricing, import_pricing_names, plunge_pricing_breaks, plunge_pricing_pricing, plunge_pricing_pricing_names, day_date, import_rates)
     if import_schedules is None:
         return None, None
 
     if export_rates:
         export_breaks = get_breaks(EXPORT_RATES.current_tariff, "export_tariff_breaks", default_value=tariff.DEFAULT_BREAKS, required=True)
         export_pricing = get_pricing(EXPORT_RATES.current_tariff, "export_tariff_pricing", default_value=tariff.DEFAULT_PRICING, required=True)
-        export_schedules = tariff.get_schedules(export_breaks, export_pricing, None, None, export_rates)
+        export_pricing_names = get_pricing_names(EXPORT_RATES.current_tariff, "export_tariff_pricing_names", default_value=import_pricing_names, required=False)
+        export_schedules = tariff.get_export_schedules(export_breaks, export_pricing, export_pricing_names, day_date, export_rates)
     else:
         export_schedules = None
 
