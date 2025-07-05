@@ -22,6 +22,8 @@ EXPORT_MPAN = get_mpan("export_mpan", False)
 IMPORT_RATES = tariff.Rates()
 EXPORT_RATES = tariff.Rates()
 
+FREE_SESSIONS = {}
+
 WEEK_SCHEDULES = tariff.WeekSchedules()
 
 TARIFF_CACHE = (0, None)
@@ -69,11 +71,23 @@ def refresh_next_day_rates(mpan, tariff_code, rates, **kwargs):
         update_powerwall_tariff()
 
 
+@event_trigger("octopus_energy_all_octoplus_free_electricity_sessions")
+def refresh_free_sessions(account_id, events, **kwargs):
+    debug(f"Free sessions for account {account_id}:\n{events}")
+    FREE_SESSIONS.clear()
+    for event in events:
+        FREE_SESSIONS[event["start"]] = event
+    update_powerwall_tariff()
+
+
 def set_status_message(value):
     try:
         input_text.powerwall_tariff_update_status = value
     except:
         pass
+
+
+set_status_message("Waiting for rate data...")
 
 
 def get_tariff_setting(tariff_code, config_key, default_value):
@@ -150,6 +164,17 @@ def _update_schedules_for_day(day_date):
     if not import_rates:
         return None, None
     export_rates = EXPORT_RATES.cover_day(day_date)
+
+    event_duration = 0.0
+    for i, rate in enumerate(import_rates):
+        if event_duration <= 0.0:
+            free_event = FREE_SESSIONS.get(rate["start"])
+            if free_event:
+                event_duration = free_event["duration_in_minutes"]
+        if event_duration > 0.0:
+            # NB: treat rate object as immutable so original is golden
+            import_rates[i] = {**rate, tariff.PRICE_KEY: 0.0, "session": "free"}
+            event_duration -= 30
 
     import_breaks = get_breaks(IMPORT_RATES.current_tariff, "import_tariff_breaks", default_value=tariff.DEFAULT_BREAKS, required=True)
     plunge_pricing_breaks = get_breaks(IMPORT_RATES.current_tariff, "plunge_pricing_tariff_breaks", required=False)
@@ -264,6 +289,8 @@ def _update_powerwall_tariff():
                         status_msg += "|"
             sep = ", "
         status_msg += ")"
+    if FREE_SESSIONS:
+        status_msg += " (sessions: free)"
     set_status_message(status_msg)
 
 
