@@ -1,11 +1,10 @@
+import sys
+
+
+if "/config/pyscript_packages" not in sys.path:
+    sys.path.append("/config/pyscript_packages")
+
 import teslapy
-# use below instead if you want to use a local copy of teslapy
-#
-#import sys
-#if "/config/pyscript_packages" not in sys.path:
-#    sys.path.append("/config/pyscript_packages")
-#
-#import teslapy_latest as teslapy
 
 
 @pyscript_executor
