@@ -15,9 +15,9 @@ ONE_DAY_INCREMENT = dt.timedelta(days=1)
 SLOT_TIME_INCREMENT = dt.timedelta(minutes=30)
 
 DEFAULT_CHARGE_NAMES = [
-    ["PARTIAL_PEAK"],
+    ["OFF_PEAK"],
     ["OFF_PEAK", "ON_PEAK"],
-    ["SUPER_OFF_PEAK", "OFF_PEAK", "ON_PEAK"],
+    ["OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"],
     ["SUPER_OFF_PEAK", "OFF_PEAK", "PARTIAL_PEAK", "ON_PEAK"]
 ]
 
