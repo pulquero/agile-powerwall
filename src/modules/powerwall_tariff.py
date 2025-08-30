@@ -493,9 +493,11 @@ def to_charge_period_json(start_day_of_week, end_day_of_week, period, tz):
 
 def populate_tou_periods(tou_periods, schedules, start_day_of_week, end_day_of_week, tz):
     for schedule in schedules:
-        charge_periods = tou_periods[schedule.charge_name]
-        for period in schedule.get_periods():
-            charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period, tz))
+        periods = schedule.get_periods()
+        if periods:
+            charge_periods = tou_periods[schedule.charge_name]
+            for period in periods:
+                charge_periods.append(to_charge_period_json(start_day_of_week, end_day_of_week, period, tz))
 
 
 def schedules_to_tariff(week_schedules, schedule_type, weekday, tz=None, export=False):
@@ -504,7 +506,8 @@ def schedules_to_tariff(week_schedules, schedule_type, weekday, tz=None, export=
     if schedule_type == "week":
         # week
         today_schedules = week_schedules.get_schedules(weekday, export)
-        populate_tou_periods(tou_periods, today_schedules, 0, 6, tz)
+        if today_schedules:
+            populate_tou_periods(tou_periods, today_schedules, 0, 6, tz)
     elif schedule_type == "weekend":
         # midweek/weekend when possible
         if is_midweek(weekday):
@@ -546,30 +549,34 @@ def schedules_to_tariff(week_schedules, schedule_type, weekday, tz=None, export=
     else:
         raise ValueError(f"Invalid schedule type: {schedule_type}")
 
-    seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
-                          "toMonth": 12, "tou_periods": tou_periods},
-               "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0,
-                          "toMonth": 0, "tou_periods": {}}}
-    return seasons
+    if tou_periods:
+        seasons = {"Summer": {"fromMonth": 1, "fromDay": 1, "toDay": 31,
+                              "toMonth": 12, "tou_periods": tou_periods},
+                   "Winter": {"fromMonth": 0, "fromDay": 0, "toDay": 0,
+                              "toMonth": 0, "tou_periods": {}}}
+        return seasons
+    else:
+        return None
 
 
-def get_price_info(schedules):
+def get_price_info(week_schedules, export=False):
     price_info = {}
-    for schedule in schedules:
-        price_info[schedule.charge_name] = schedule.get_value()
+    for i in range(7):
+        schedules = week_schedules.get_schedules(i, export)
+        if schedules:
+            for schedule in schedules:
+                price_info[schedule.charge_name] = schedule.get_value()
     return price_info
 
 
 def to_tariff_data(provider_name, import_plan, import_standing_charge, import_schedule_type, export_plan, export_standing_charge, export_schedule_type, week_schedules, day_date, tz=None):
     weekday = day_date.weekday()
-    current_import_schedules = week_schedules.get_schedules(weekday)
-    current_export_schedules = week_schedules.get_schedules(weekday, export=True)
     import_seasons = schedules_to_tariff(week_schedules, import_schedule_type, weekday, tz=tz)
-    buy_price_info = get_price_info(current_import_schedules);
+    buy_price_info = get_price_info(week_schedules);
 
-    if current_export_schedules:
-        export_seasons = schedules_to_tariff(week_schedules, export_schedule_type, weekday, tz=tz, export=True)
-        sell_price_info = get_price_info(current_export_schedules);
+    export_seasons = schedules_to_tariff(week_schedules, export_schedule_type, weekday, tz=tz, export=True)
+    if export_seasons:
+        sell_price_info = get_price_info(week_schedules, export=True);
     else:
         export_seasons = import_seasons
         sell_price_info = {charge_name: 0 for charge_name in buy_price_info}
