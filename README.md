@@ -1,3 +1,9 @@
+# *** Deprecated ***
+
+Tesla now has direct support for Octopus tariffs within the app and you can use this Home Assistant integration:
+[https://www.home-assistant.io/integrations/tesla_fleet](https://www.home-assistant.io/integrations/tesla_fleet).
+
+
 # Agile Powerwall
 Home Assistant Pyscript-based integration that uploads dynamic pricing to Tesla Powerwalls.
 
