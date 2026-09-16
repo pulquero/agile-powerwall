@@ -249,7 +249,8 @@ def _update_powerwall_tariff():
         WEEK_SCHEDULES, today, tz=tz
     )
 
-    debug(f"Tariff data:\n{json.dumps(tariff_data)}")
+    pretty_tariff_data = json.dumps(tariff_data, indent=4)
+    debug(f"Tariff data:\n{pretty_tariff_data}")
 
     current_tariff_data = _get_tariff_data()
     tariff_change = diff(tariff_data, current_tariff_data)
